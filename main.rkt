@@ -57,7 +57,11 @@
     (head (title ,(format "Repositories managed by ~a" manager))
           (link ([href "/view.css"]
                  [rel "stylesheet"]
-                 [type "text/css"])))
+                 [type "text/css"]))
+          (script ([src "/jquery-2.1.4.min.js"]
+                   [type "text/javascript"]))
+          (script ([src "/view.js"]
+                   [type "text/javascript"])))
     (body
      (h1 "Repository status")
      ,@(for/list ([repo repos]) (repo-section manager repo req))
@@ -84,11 +88,14 @@
   (define ci (hash-ref aci 'info))
   (define picked? (equal? (hash-ref aci 'status_actual) "picked"))
   (define attn? (equal? (hash-ref aci 'status_recommend) "attn"))
+  (define id (format "commit_~a" (commit-sha ci)))
+  (define onclick-code (format "toggle_commit_full_message('~a');" id))
   `(div ([class ,(format "commit_block ~a ~a"
                          (if picked? "commit_picked" "commit_unpicked")
                          (if attn? "commit_attn" "commit_no_attn"))]
-         [id ,(format "commit_~a" (commit-sha ci))])
-    (div ([class "commit_line"])
+         [id ,id])
+    (div ([class "commit_line"]
+          [onclick ,onclick-code])
      (span ([class "commit_sha"]) ,(shorten-sha (commit-sha ci)))
      (span ([class "commit_date"]) ,(nicer-date (author-date (commit-author ci))))
      (span ([class "commit_author"]) ,(author-name (commit-author ci)))

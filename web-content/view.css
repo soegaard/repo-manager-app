@@ -19,7 +19,7 @@ div.commit_block:hover {
   border-style: dotted;
 }
 
-.commit_block span { 
+.commit_line span { 
   padding: 1ex
 }
 
@@ -46,6 +46,7 @@ div.commit_block:hover {
 }
 
 .commit_full_msg { 
+  padding: 1ex 2ex;
   display : none
 }
 
