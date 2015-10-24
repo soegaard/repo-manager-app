@@ -78,6 +78,9 @@
 
 ;; ============================================================
 
+(define (db:get-manager-repos manager)
+  (query-rows the-db "SELECT owner, repo FROM managers WHERE manager = ?" manager))
+
 (define (db:create-manager manager owner+repo-list)
   (call-with-transaction the-db
     (lambda ()
@@ -93,6 +96,26 @@
   (query-value the-db "INSERT INTO branch_day (owner, repo, sha) VALUES (?, ?, ?)" owner repo sha))
 
 ;; ============================================================
+
+(define (get-annotated-master-chain owner repo)
+  (define master-sha (ref-sha (db:get-branch owner repo "master")))
+  (define release-sha
+    (cond [(db:get-branch owner repo "release") => ref-sha]
+          [else (db:get-branch-day-sha owner repo)]))
+  (define merge-base-sha (get-merge-base owner repo master-sha release-sha))
+  (define master-chain (get-commit-chain owner repo master-sha merge-base-sha))
+  (define release-chain (get-commit-chain owner repo release-sha merge-base-sha))
+  (define picked (chain->picked release-chain))
+  (annotate-chain master-chain picked))
+
+(define (annotate-chain chain picked)
+  (for/list ([ci chain])
+    (annotate-commit ci picked)))
+
+(define (annotate-commit ci picked)
+  (hash 'info ci
+        'status_actual (if (member (commit-sha ci) picked) "picked" "no")
+        'status_recommend (if (commit-needs-attention? ci) "attn" "no")))
 
 ;; FIXME: add limit
 (define (get-merge-base owner repo sha1 sha2)
@@ -126,21 +149,3 @@
 (define (commit-needs-attention? ci)
   (regexp-match? #rx"[Mm]erge|[Rr]elease" (commit-message ci)))
 
-
-(module+ testing
-
-  (define (chain-diff owner repo master-sha release-sha merge-base-sha)
-    (define master-chain (get-commit-chain owner repo master-sha merge-base-sha))
-    (define release-chain (get-commit-chain owner repo release-sha merge-base-sha))
-    (define picked (chain->picked release-chain))
-    (annotate-chain master-chain picked))
-
-  (define (annotate-chain chain picked)
-    (for/list ([ci chain])
-      (annotate-commit ci picked)))
-
-  (define (annotate-commit ci picked)
-    (list (commit-sha ci)
-          (if (member (commit-sha ci) picked) 'PICKED 'no____)
-          (if (commit-needs-attention? ci) 'ATTN '____)))
-  )

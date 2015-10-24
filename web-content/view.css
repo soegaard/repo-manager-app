@@ -1,0 +1,54 @@
+
+/* ============================================================ */
+
+.repo_section { }
+
+.repo_section_body { }
+
+.todo_section { }
+
+/* ============================================================ */
+
+.commit_block { 
+  padding: 2pt;
+  border: 1pt solid white;
+  font-family: monospace;
+}
+div.commit_block:hover {
+  border-color: gray;
+  border-style: dotted;
+}
+
+.commit_block span { 
+  padding: 1ex
+}
+
+.commit_picked {
+  color: gray;
+}
+.commit_unpicked { }
+
+.commit_unpicked.commit_attn {
+  background-color: #FDD; /* pink; */
+}
+.commit_no_attn { }
+
+.commit_sha {
+}
+
+.commit_date {
+}
+
+.commit_author {
+}
+
+.commit_msg_line1 {
+}
+
+.commit_full_msg { 
+  display : none
+}
+
+/* ============================================================ */
+
+.external_link { }

@@ -13,12 +13,13 @@
 ;; Get a commit
 (define (github:get-commit owner repo sha)
   (get/github (gh-endpoint "repos" owner repo "git/commits" sha)))
-;; { sha : String,
+;; CommitInfo = {
+;;   sha : String,
 ;;   author : AuthorInfo, committer : AuthorInfo,
 ;;   message : String,
 ;;   parents : [ { sha : String, _ }, ... ],
 ;;   _ }
-;; where AuthorInfo = { date = String, name = String, email = String }
+;; AuthorInfo = { date = String, name = String, email = String }
 
 (define (commit-sha ci) (hash-ref ci 'sha))
 (define (commit-author ci) (hash-ref ci 'author))
@@ -41,8 +42,9 @@
 
 ;; Get a reference
 (define (github:get-ref owner repo ref)
-  (get/github (gh-endpoint "repos" owner repo "git/refs" ref)))
-;; { ref : String, object : { type : "commit", sha : String, _ }, _ }
+  (get/github (gh-endpoint "repos" owner repo "git/refs" ref)
+              #:fail (lambda _ #f)))
+;; RefInfo = { ref : String, object : { type : "commit", sha : String, _ }, _ }
 
 (define (github:get-branch owner repo branch)
   (github:get-ref owner repo (format "heads/~a" branch)))
@@ -53,7 +55,10 @@
 
 
 ;; ============================================================
-;; Create link to view commit on github.com
+;; Create links to github.com
+
+(define (github:make-repo-link owner repo)
+  (format "https://github.com/~a/~a/" owner repo))
 
 (define (github:make-commit-link owner repo commit)
   (format "https://github.com/~a/~a/commit/~a" owner repo commit))
