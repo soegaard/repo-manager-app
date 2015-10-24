@@ -1,7 +1,18 @@
+h1, h2 {
+  color: darkred;
+  font-family: sans-serif;
+}
 
 /* ============================================================ */
 
-.repo_section { }
+.repo_section {
+  border: 2pt solid darkred;
+  padding: 0pt 6pt;
+}
+
+.repo_head_buttons {
+    float: right;
+}
 
 .repo_section_body { }
 

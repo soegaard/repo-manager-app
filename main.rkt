@@ -63,7 +63,7 @@
           (script ([src "/view.js"]
                    [type "text/javascript"])))
     (body
-     (h1 "Repository status")
+     (h1 "Repository recent master commits")
      ,@(for/list ([repo repos]) (repo-section manager repo req))
      (h1 "To do summary")
      (div ([id "todo"]
@@ -72,11 +72,24 @@
 
 (define (repo-section manager owner+repo req)
   (defmatch (vector owner repo) owner+repo)
+  (define id (format "repo_section_~a_~a" owner repo))
+  (define onclick-code (format "toggle_repo_section_body('~a');" id))
+  ;; FIXME: accordion instead, maybe?
   `(div ([class "repo_section"]
-         [id ,(format "repo_section/~a/~a" owner repo)])
-    (h2 ,(format "Repo ~a/~a " owner repo)
-        ,(make-ext-link (github:make-repo-link owner repo)))
+         [id ,id])
+    (div ([class "repo_head"])
+         (div ([class "repo_head_buttons"])
+              ,(make-repo-button "Expand all" (format "repo_expand_all('~a');" id))
+              ,(make-repo-button "Collapse all" (format "repo_collapse_all('~a');" id))
+              #| ,(make-ext-link (github:make-repo-link owner repo)) |#)
+         (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a " owner repo))))
     ,(repo-section-body manager owner repo req)))
+
+(define (make-repo-button label code)
+  `(button ([class "repo_button"]
+            [type "button"]
+            [onclick ,code])
+    ,label))
 
 (define (repo-section-body manager owner repo req)
   (define acis (get-annotated-master-chain owner repo))
