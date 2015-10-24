@@ -109,12 +109,23 @@
          [id ,id])
     (div ([class "commit_line"]
           [onclick ,onclick-code])
-     (span ([class "commit_sha"]) ,(shorten-sha (commit-sha ci)))
-     (span ([class "commit_date"]) ,(nicer-date (author-date (commit-author ci))))
-     (span ([class "commit_author"]) ,(author-name (commit-author ci)))
-     (span ([class "commit_msg_line1"]) ,(string-first-line (commit-message ci))))
+     (span ([class "commit_elem commit_action"])
+           ,(if picked?
+                `(span ([class "commit_action_picked"]) "picked")
+                (make-commit-action-select id (commit-sha ci))))
+     (span ([class "commit_elem commit_sha"]) ,(shorten-sha (commit-sha ci)))
+     (span ([class "commit_elem commit_date"]) ,(nicer-date (author-date (commit-author ci))))
+     (span ([class "commit_elem commit_author"]) ,(author-name (commit-author ci)))
+     (span ([class "commit_elem commit_msg_line1"]) ,(string-first-line (commit-message ci))))
     (div ([class "commit_full_msg"]) ,@(string-newlines->brs (commit-message ci)))
     ))
+
+(define (make-commit-action-select id sha)
+  `(select ()
+    (option ([value "no"]) "")
+    (option ([value "will-pick"]) "will pick")
+    (option ([value "wont-pick"]) "won't pick")
+    (option ([value "did-pick"]) "did pick")))
 
 (define (shorten-sha s)
   (substring s 0 8))

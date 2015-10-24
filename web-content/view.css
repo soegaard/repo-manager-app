@@ -30,8 +30,9 @@ div.commit_block:hover {
   border-style: dotted;
 }
 
-.commit_line span { 
-  padding: 1ex
+.commit_line .commit_elem { 
+  display: inline-block;
+  padding: 0ex 1ex;
 }
 
 .commit_picked {
@@ -42,19 +43,22 @@ div.commit_block:hover {
 .commit_unpicked.commit_attn {
   background-color: #FDD; /* pink; */
 }
-.commit_no_attn { }
+.commit_no_attn {}
 
-.commit_sha {
+.commit_action {
+  float: right;
 }
+.commit_action_picked {}
 
-.commit_date {
-}
+.commit_sha {}
+
+.commit_date {}
 
 .commit_author {
+  min-width: 20ex;
 }
 
-.commit_msg_line1 {
-}
+.commit_msg_line1 {}
 
 .commit_full_msg { 
   padding: 1ex 2ex;
