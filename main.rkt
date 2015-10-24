@@ -93,7 +93,7 @@
 
 (define (repo-section-body manager owner repo req)
   (define acis (get-annotated-master-chain owner repo))
-  `(div ([class "repo_section_body"])
+  `(table ([class "repo_section_body"])
     ,@(for/list ([aci acis]) (commit-block manager owner repo aci req))))
 
 ;; FIXME: need to add status text / action listboxes
@@ -103,29 +103,26 @@
   (define attn? (equal? (hash-ref aci 'status_recommend) "attn"))
   (define id (format "commit_~a" (commit-sha ci)))
   (define onclick-code (format "toggle_commit_full_message('~a');" id))
-  `(div ([class ,(format "commit_block ~a ~a"
-                         (if picked? "commit_picked" "commit_unpicked")
-                         (if attn? "commit_attn" "commit_no_attn"))]
-         [id ,id])
-    (div ([class "commit_line"]
-          [onclick ,onclick-code])
-     (span ([class "commit_elem commit_action"])
-           ,(if picked?
-                `(span ([class "commit_action_picked"]) "picked")
-                (make-commit-action-select id (commit-sha ci))))
-     (span ([class "commit_elem commit_sha"]) ,(shorten-sha (commit-sha ci)))
-     (span ([class "commit_elem commit_date"]) ,(nicer-date (author-date (commit-author ci))))
-     (span ([class "commit_elem commit_author"]) ,(author-name (commit-author ci)))
-     (span ([class "commit_elem commit_msg_line1"]) ,(string-first-line (commit-message ci))))
-    (div ([class "commit_full_msg"]) ,@(string-newlines->brs (commit-message ci)))
-    ))
+  `(tr ([class ,(format "commit_block ~a ~a"
+                        (if picked? "commit_picked" "commit_unpicked")
+                        (if attn? "commit_attn" "commit_no_attn"))]
+        [id ,id])
+    (td
+     (div ([class "commit_line"]
+           [onclick ,onclick-code])
+          (span ([class "commit_elem commit_sha"]) ,(shorten-sha (commit-sha ci)))
+          (span ([class "commit_elem commit_date"]) ,(nicer-date (author-date (commit-author ci))))
+          (span ([class "commit_elem commit_author"]) ,(author-name (commit-author ci)))
+          (span ([class "commit_elem commit_msg_line1"]) ,(string-first-line (commit-message ci))))
+     (div ([class "commit_full_msg"]) ,@(string-newlines->brs (commit-message ci))))
+    (td ([class "commit_action"])
+        ,(if picked?
+             `(span ([class "commit_action_picked"]) "picked")
+             (make-commit-action-select id (commit-sha ci))))))
 
 (define (make-commit-action-select id sha)
-  `(select ()
-    (option ([value "no"]) "")
-    (option ([value "will-pick"]) "will pick")
-    (option ([value "wont-pick"]) "won't pick")
-    (option ([value "did-pick"]) "did pick")))
+  (define name (format "action_~a" sha))
+  `(label (input ([type "checkbox"] [name ,name])) "pick"))
 
 (define (shorten-sha s)
   (substring s 0 8))

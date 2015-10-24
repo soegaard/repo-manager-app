@@ -30,6 +30,10 @@ div.commit_block:hover {
   border-style: dotted;
 }
 
+.commit_line {
+  /* Trying to get the height of a picked line same as one with a select list-box */
+  padding: 4pt 0pt;
+}
 .commit_line .commit_elem { 
   display: inline-block;
   padding: 0ex 1ex;
@@ -45,10 +49,16 @@ div.commit_block:hover {
 }
 .commit_no_attn {}
 
-.commit_action {
-  float: right;
+td.commit_action {
+  vertical-align: top;
 }
-.commit_action_picked {}
+
+.commit_action_picked {
+/*
+  display: inline-block;
+  padding: 2pt 0pt;
+*/
+}
 
 .commit_sha {}
 
