@@ -134,7 +134,7 @@
   (cond [(list? acis)
          `(div
            (div ([class "repo_status_line"])
-                ,(format "~a commits; " (length acis))
+                ,(format "~a commits since branch day; " (length acis))
                 "last checked for updates "
                 (abbr ([class "timeago"] [title ,timestamp]) "at " ,timestamp))
            (table ([class "repo_section_body"])
@@ -189,7 +189,7 @@
   (define onclick-code (format "toggle_body('~a');" id))
   `(div ([class "todo_section"]
          [id ,id])
-    (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a" owner repo)))
+    (h3 (span ([onclick ,onclick-code]) ,(format "~a/~a" owner repo)))
     (div ([class "body_container"])
          ,(repo-todo-body ri))))
 

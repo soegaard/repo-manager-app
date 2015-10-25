@@ -33,7 +33,11 @@ function check_for_updates() {
         url : '/ajax/poll/' + manager,
         dataType : 'json',
         success : function(data) {
-            // console.log('data = ' + JSON.stringify(data));
+            var now = (new Date()).toISOString();
+            var s = $('.repo_status_line abbr.timeago');
+            s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
+            s = $('abbr.timeago');
+            s.timeago();
             $.each(data, function(index, entry) {
                 update_body_container('repo_section_' + entry.owner + '_' + entry.repo,
                                       '/ajax/repo-html/' + entry.owner + '/' + entry.repo);

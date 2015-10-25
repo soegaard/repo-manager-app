@@ -1,4 +1,4 @@
-h1, h2 {
+h1, h2, h3 {
   color: darkred;
   font-family: sans-serif;
 }
@@ -14,7 +14,7 @@ td {
 /* ============================================================ */
 
 .repo_section {
-  border: 2pt solid darkred;
+  border: 1pt solid darkred;
   padding: 0pt 6pt;
   margin: 2pt;
 }
@@ -110,13 +110,18 @@ td.commit_action {
 /* ============================================================ */
 
 .todo_section {
+  /*
   border: 2pt solid darkred;
+  padding: 0pt 6pt;
+  */
   padding: 0pt 6pt;
   margin: 2pt;
 }
 .todo_body {
   font-family: monospace;
+  /*
   padding: 0pt 0pt 24pt 0pt;
+  */
 }
 
 .todo_commit_line {
