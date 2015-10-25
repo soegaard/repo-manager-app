@@ -120,7 +120,9 @@
 (define (db:get-branch-day-sha owner repo)
   (query-value the-db "SELECT sha FROM branch_day WHERE owner = ? AND repo = ?" owner repo))
 (define (db:set-branch-day-sha owner repo sha)
-  (query-value the-db "INSERT INTO branch_day (owner, repo, sha) VALUES (?, ?, ?)" owner repo sha))
+  (query-exec the-db
+    "INSERT OR REPLACE INTO branch_day (owner, repo, sha) VALUES (?, ?, ?)"
+    owner repo sha))
 
 ;; ============================================================
 
