@@ -25,7 +25,7 @@
     '(lambda (req manager) ...)]
    [("ajax" "repo-html" (string-arg) (string-arg))
     (lambda (req owner repo)
-      (repo-section-body owner repo))]
+      (repo-section-body (get-repo-info owner repo)))]
    [("ajax" "todo-html" (string-arg) (string-arg))
     (lambda (req owner repo)
       (repo-todo-body (get-repo-info owner repo)))]
@@ -77,8 +77,6 @@
         (db:recache-ref/ts owner repo "heads/master")
         (db:recache-ref/ts owner repo "heads/release")
         (define new-state (get-state))
-        (eprintf "old-state = ~s\n" old-state)
-        (eprintf "new-state = ~s\n" new-state)
         (and (not (equal? new-state old-state))
              (hash 'owner owner 'repo repo)))))
   (json-response updated))
@@ -94,6 +92,8 @@
                  [rel "stylesheet"]
                  [type "text/css"]))
           (script ([src "/jquery-2.1.4.min.js"]
+                   [type "text/javascript"]))
+          (script ([src "/jquery.timeago.js"]
                    [type "text/javascript"]))
           (script ([src "/view.js"]
                    [type "text/javascript"]))
@@ -111,7 +111,7 @@
   (define owner (hash-ref ri 'owner))
   (define repo (hash-ref ri 'repo))
   (define id (format "repo_section_~a_~a" owner repo))
-  (define onclick-code (format "toggle_repo_section_body('~a');" id))
+  (define onclick-code (format "toggle_body('~a');" id))
   `(div ([class "repo_section"]
          [id ,id])
     (div ([class "repo_head"])
@@ -129,11 +129,11 @@
   (define owner (hash-ref ri 'owner))
   (define repo (hash-ref ri 'repo))
   (define acis (hash-ref ri 'commits))
+  (define timestamp (seconds->datestring (hash-ref ri 'last_polled)))
   `(div
     (div ([class "repo_status_line"])
          "Last checked for updates "
-         (span ([class "timeago"]) "at "
-               ,(seconds->datestring (hash-ref ri 'last_polled))))
+         (abbr ([class "timeago"] [title ,timestamp]) "at " ,timestamp))
     (table ([class "repo_section_body"])
            ,@(for/list ([aci acis]) (commit-block owner repo aci)))
     (script ,(format "register_repo_commits('~a', '~a', '~a');"
@@ -177,7 +177,7 @@
   (define owner (hash-ref ri 'owner))
   (define repo (hash-ref ri 'repo))
   (define id (format "todo_repo_~a_~a" owner repo))
-  (define onclick-code (format "toggle_todo_body('~a');" id))
+  (define onclick-code (format "toggle_body('~a');" id))
   `(div ([class "todo_section"]
          [id ,id])
     (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a" owner repo)))

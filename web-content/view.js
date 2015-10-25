@@ -51,7 +51,7 @@ function update_body_container(id, url) {
         dataType : 'html',
         success : function(contents) {
             s.html(contents);
-            // console.log('updated ' + id);
+            $('.timeago').timeago();
         }
     });
 }
@@ -68,13 +68,15 @@ $(function() {
     $('.commit_pick_checkbox').each(function(index, elem) { 
         elem.checked = false; 
     });
+    $('.timeago').timeago();
 });
+
 
 /* ============================================================
    Repo callbacks */
 
-function toggle_repo_section_body(id) {
-    select_id(id).find('.repo_section_body').toggle();
+function toggle_body(id) {
+    select_id(id).find('.body_container').toggle();
 }
 
 function repo_expand_all(id) {
