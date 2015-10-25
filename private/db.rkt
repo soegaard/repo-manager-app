@@ -48,25 +48,38 @@
            "SELECT json FROM commits WHERE owner = ? AND repo = ? AND sha = ?"
            owner repo sha)
          => string->jsexpr]
-        [(and github? (github:get-commit owner repo sha))
+        [github?
+         (db:recache-commit owner repo sha)]
+        [else #f]))
+
+(define (db:recache-commit owner repo sha)
+  (cond [(github:get-commit owner repo sha)
          => (lambda (json)
               (eprintf "Querying github for commit ~a/~a/~a\n" owner repo sha)
               (query-exec the-db
-                "INSERT INTO commits (owner, repo, sha, json) VALUES (?, ?, ?, ?)"
+                "INSERT OR REPLACE INTO commits (owner, repo, sha, json) VALUES (?, ?, ?, ?)"
                 owner repo sha (jsexpr->string json))
               json)]
         [else #f]))
 
 (define (db:get-ref owner repo ref #:github? [github? #t])
-  (cond [(query-maybe-value the-db
-           "SELECT json FROM refs WHERE owner = ? AND repo = ? AND ref = ?"
-           owner repo ref)
-         => string->jsexpr]
-        [(and github? (github:get-ref owner repo ref))
+  (define json
+    (cond [(query-maybe-value the-db
+             "SELECT json FROM refs WHERE owner = ? AND repo = ? AND ref = ?"
+             owner repo ref)
+           => string->jsexpr]
+          [github?
+           (db:recache-ref owner repo ref)]
+          [else #f]))
+  (if (equal? json "none") #f json))
+
+;; Note: github:get-ref returns "none" when ref doesn't exist, so we can cache nonexistence.
+(define (db:recache-ref owner repo ref)
+  (cond [(github:get-ref owner repo ref)
          => (lambda (json)
               (eprintf "Querying github for ref ~a/~a/~a\n" owner repo ref)
               (query-exec the-db
-                "INSERT INTO refs (owner, repo, ref, json, ts) VALUES (?, ?, ?, ?, ?)"
+                "INSERT OR REPLACE INTO refs (owner, repo, ref, json, ts) VALUES (?, ?, ?, ?, ?)"
                 owner repo ref (jsexpr->string json) (current-seconds))
               json)]
         [else #f]))
@@ -75,6 +88,10 @@
   (db:get-ref owner repo (format "heads/~a" branch)))
 (define (db:get-tag owner repo tag)
   (db:get-ref owner repo (format "tags/~a" tag)))
+
+(define (db:get-branch-sha owner repo branch)
+  (let ([ri (db:get-branch owner repo branch)])
+    (and ri (ref-sha ri))))
 
 ;; ============================================================
 

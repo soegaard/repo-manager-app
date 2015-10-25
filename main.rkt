@@ -24,15 +24,27 @@
     '(lambda (req manager) ...)]
    [("ajax" "repo" (string-arg) (string-arg))
     '(lambda (req owner repo) ....)]
-   [("ajax" "poll") ;; POST [ { owner : String, repo : String }, ... ]
-    '(lambda (req) ....)]
+   [("ajax" "poll" (string-arg))
+    (lambda (req manager) (poll manager req))]
    ))
 
+(define (json-response jsexpr #:headers [headers null])
+  (response/output (lambda (out) (write-json jsexpr out))
+                   #:mime-type #"application/json"
+                   #:headers headers))
+
+;; AnnotatedCommitInfo = {
+;;   info : CommitInfo (see github.rkt),
+;;   status_actual : String (...),
+;;   status_recommend : String (...),
+;;   _ }
+
+;; Not yet implemented:
+;; 
 ;; ManagerInfo = {
 ;;   manager : String,
 ;;   repos : Arrayof { owner : String, repo : String },
 ;;   _ }
-
 ;; RepoInfo = {
 ;;   owner : String,
 ;;   repo : String,
@@ -43,13 +55,27 @@
 ;;   master_commits : Arrayof AnnotatedCommitInfo,
 ;;   _ }
 
-;; AnnotatedCommitInfo = {
-;;   info : CommitInfo (see github.rkt),
-;;   status_actual : String (...),
-;;   status_recommend : String (...),
-;;   _ }
-
 ;; ============================================================
+
+;; FIXME: add time/rate limit of some sort...
+(define (poll manager req)
+  (define repos (db:get-manager-repos manager))
+  (define updated
+    (filter values
+      (for/list ([owner+repo repos])
+        (defmatch (vector owner repo) owner+repo)
+        (define (get-state)
+          (list (db:get-branch-sha owner repo "master")
+                (db:get-branch-sha owner repo "release")))
+        (define old-state (get-state))
+        (db:recache-ref owner repo "heads/master")
+        (db:recache-ref owner repo "heads/release")
+        (define new-state (get-state))
+        (eprintf "old-state = ~s\n" old-state)
+        (eprintf "new-state = ~s\n" new-state)
+        (and (not (equal? new-state old-state))
+             (hash 'owner owner 'repo repo)))))
+  (json-response updated))
 
 (define (manager-view manager req)
   (define repos (db:get-manager-repos manager))
@@ -62,8 +88,11 @@
           (script ([src "/jquery-2.1.4.min.js"]
                    [type "text/javascript"]))
           (script ([src "/view.js"]
-                   [type "text/javascript"])))
+                   [type "text/javascript"]))
+          (script ,(format "manager = '~a';" manager)))
     (body
+     (div ([class "global_head_buttons"])
+          ,(make-button "Check for updates" "check_for_updates();"))
      (h1 "Repository recent master commits")
      ,@(for/list ([repo repos]) (repo-section manager repo req))
      (h1 "To do summary")
@@ -79,15 +108,14 @@
          [id ,id])
     (div ([class "repo_head"])
          (div ([class "repo_head_buttons"])
-              ,(make-repo-button "Expand all" (format "repo_expand_all('~a');" id))
-              ,(make-repo-button "Collapse all" (format "repo_collapse_all('~a');" id))
+              ,(make-button "Expand all" (format "repo_expand_all('~a');" id))
+              ,(make-button "Collapse all" (format "repo_collapse_all('~a');" id))
               #| ,(make-ext-link (github:make-repo-link owner repo)) |#)
          (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a " owner repo))))
     ,(repo-section-body manager owner repo req)))
 
-(define (make-repo-button label code)
-  `(button ([class "repo_button"]
-            [type "button"]
+(define (make-button label code)
+  `(button ([type "button"]
             [onclick ,code])
     ,label))
 

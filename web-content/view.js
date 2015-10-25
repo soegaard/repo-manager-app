@@ -2,6 +2,7 @@
 /* ============================================================
    Data */
 
+var manager = null;
 var repo_commits = new Map();    // owner/repo : String => shas : Arrayof String
 var commits_picked = new Map();  // sha : String => boolean
 
@@ -24,6 +25,15 @@ function set_commit_will_pick(sha, will_pick) {
     commits_picked.set(sha, will_pick);
 }
 
+function check_for_updates() {
+    $.ajax({
+        url : '/ajax/poll/' + manager,
+        dataType : 'json',
+        success : function(data) {
+            console.log('data = ' + JSON.stringify(data));
+        }
+    });
+}
 
 /* ============================================================
    General helpers */

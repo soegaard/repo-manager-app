@@ -3,6 +3,10 @@ h1, h2 {
   font-family: sans-serif;
 }
 
+.global_head_buttons {
+    float: right;
+}
+
 /* ============================================================ */
 
 .repo_section {
