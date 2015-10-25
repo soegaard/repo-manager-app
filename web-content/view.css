@@ -16,6 +16,7 @@ td {
 .repo_section {
   border: 2pt solid darkred;
   padding: 0pt 6pt;
+  margin: 2pt;
 }
 
 .repo_head_buttons {
@@ -102,7 +103,9 @@ td.commit_action {
 
 .todo_section {
   border: 2pt solid darkred;
-  padding: 0pt 6pt}
+  padding: 0pt 6pt;
+  margin: 2pt;
+}
 .todo_body {
   font-family: monospace;
   padding: 0pt 0pt 24pt 0pt;
