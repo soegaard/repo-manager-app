@@ -98,7 +98,9 @@ td.commit_action {
   min-width: 20ex;
 }
 
-.commit_msg_line1 {}
+.commit_msg_line1 {
+  min-width: 60ex;
+}
 
 .commit_full_msg { 
   padding: 1ex 2ex;

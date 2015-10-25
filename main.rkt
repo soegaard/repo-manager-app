@@ -105,7 +105,8 @@
      ,@(for/list ([ri ris]) (repo-section ri))
      (h1 "To do summary")
      ,@(for/list ([ri ris]) (repo-todo-section ri))
-     (div ([style "endblock"]) nbsp))))
+     (div ([style "endblock"]) nbsp)
+     (script "final_setup();"))))
 
 (define (repo-section ri)
   (define owner (hash-ref ri 'owner))

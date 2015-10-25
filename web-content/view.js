@@ -51,8 +51,23 @@ function update_body_container(id, url) {
         dataType : 'html',
         success : function(contents) {
             s.html(contents);
-            $('.timeago').timeago();
+            $('abbr.timeago').timeago();
         }
+    });
+}
+
+/* Mysteriously, the document ready handler was getting called after
+ * one repo_section even when there were multiple sections on the
+ * page. */
+function final_setup() {
+    // Clear all of the checkboxes
+    $(document).ready(function($) {
+        $('.commit_pick_checkbox').each(function(index, elem) { 
+            elem.checked = false; 
+        });
+        $('abbr.timeago').timeago();
+        // console.log('timeago selector length = ' + $('.timeago').length);
+        // console.log('body container length = ' + $('.body_container').length);
     });
 }
 
@@ -62,15 +77,6 @@ function update_body_container(id, url) {
 function select_id(id) {
     return $('#' + id);
 }
-
-// Clear all of the checkboxes
-$(function() {
-    $('.commit_pick_checkbox').each(function(index, elem) { 
-        elem.checked = false; 
-    });
-    $('.timeago').timeago();
-});
-
 
 /* ============================================================
    Repo callbacks */
