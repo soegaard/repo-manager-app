@@ -46,6 +46,14 @@
 
 ;; ============================================================
 
+(define (ok-manager? manager)
+  (positive? (query-value the-db "SELECT count(*) FROM managers WHERE manager = ?" manager)))
+
+(define (ok-repo? owner repo)
+  (and (db:get-branch-day-sha owner repo) #t))
+
+;; ============================================================
+
 (define (db:get-commit owner repo sha #:github? [github? #t])
   (cond [(query-maybe-value the-db
            "SELECT json FROM commits WHERE owner = ? AND repo = ? AND sha = ?"

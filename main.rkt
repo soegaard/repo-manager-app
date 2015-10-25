@@ -13,6 +13,24 @@
          "private/github.rkt")
 (provide (all-defined-out))
 
+;; Some security/validation issues:
+
+;; We use xexprs, which protect against HTML injection.
+
+;; We VALIDATE incoming manager and owner/repo names by checking they
+;; exist in the db. We RELY on names in db having no js-significant
+;; chars (eg, "'"). See also issue below.
+
+;; ISSUE: in a few places, we inject data into js scripts via '~a' ---
+;; bad if the data can contain characters like "'". We should be fine,
+;; because we only use strings derived from commit SHAs, `owner`,
+;; `repo`, and `manager`. Commit SHAs never contain bad chars, and we
+;; validate `owner`, `repo`, and `manager` wrt the db. So we're fine
+;; as long as we never put bad names in the db during initialization.
+
+;; ISSUE: There's currently no time/rate limiting on ajax/poll, which
+;; forces calls to github.
+
 ;; TODO: Add current_build_sha to RepoInfo (w/ db table), show on view
 
 (define-runtime-path web-dir "web-content")
@@ -20,17 +38,21 @@
 (define-values (dispatch _make-url)
   (dispatch-rules
    [("view" (string-arg))
-    (lambda (req manager) (manager-view manager))]
-   [("ajax" "manager" (string-arg))
-    '(lambda (req manager) ...)]
+    (lambda (req manager)
+      (unless (ok-manager? manager) (error 'page "unknown manager: ~e" manager))
+      (manager-view manager))]
    [("ajax" "repo-html" (string-arg) (string-arg))
     (lambda (req owner repo)
+      (unless (ok-repo? owner repo) (error 'page "unknown repo: ~e / ~e" owner repo))
       (repo-section-body (get-repo-info owner repo)))]
    [("ajax" "todo-html" (string-arg) (string-arg))
     (lambda (req owner repo)
+      (unless (ok-repo? owner repo) (error 'page "unknown repo: ~e / ~e" owner repo))
       (repo-todo-body (get-repo-info owner repo)))]
    [("ajax" "poll" (string-arg))
-    (lambda (req manager) (poll manager))]
+    (lambda (req manager)
+      (unless (ok-manager? manager) (error 'page "unknown manager: ~e" manager))
+      (poll manager))]
    ))
 
 (define (json-response jsexpr #:headers [headers null])
@@ -52,13 +74,6 @@
 ;;   info : CommitInfo (see github.rkt),
 ;;   status_actual : String (...),
 ;;   status_recommend : String (...),
-;;   _ }
-
-;; Not yet implemented:
-;; 
-;; ManagerInfo = {
-;;   manager : String,
-;;   repos : Arrayof { owner : String, repo : String },
 ;;   _ }
 
 ;; ============================================================
