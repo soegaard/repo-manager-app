@@ -3,42 +3,14 @@
          racket/cmdline
          racket/string
          "private/net.rkt"
+         "private/catalog.rkt"
          "private/db.rkt")
 
 (define (init-branch-day [commit "master"])
-  (define catalog
-    (get/url (get-catalog-url commit)
-             #:handle read))
-  (define t (make-hash))
-  (for ([(pkg info) (in-hash catalog)])
-    (define src (hash-ref info 'source))
-    (define checksum (hash-ref info 'checksum))
-    (cond [(url->owner+repo src)
-           => (lambda (o/r) (hash-set! t o/r checksum))]))
-  (for ([(o/r sha) (in-hash t)])
-    (eprintf "set ~a/~a to ~a\n" (car o/r) (cadr o/r) sha)
+  (define catalog (get-catalog (src-catalog-url commit)))
+  (for ([(o/r sha) (in-hash (get-checksum-table catalog))])
+    ;; (eprintf "set ~a/~a to ~a\n" (car o/r) (cadr o/r) sha)
     (db:set-branch-day-sha (car o/r) (cadr o/r) sha)))
-
-(define (get-catalog-url [commit "master"])
-  (format "https://raw.githubusercontent.com/racket/release-catalog/~a/release-catalog/pkgs-all" commit))
-
-(define github-rx
-  (regexp
-   (string-append "^"
-                  "git://github\\.com/([^?/#]+)/([^/?#]+)/?"
-                  "(?:[?]path=([^?#]*))?"
-                  "(?:#([^/?#]+))?"
-                  "$")))
-
-;; url->owner+repo : String -> (list String String)/#f
-(define (url->owner+repo url)
-  (cond [(regexp-match github-rx url)
-         => (lambda (m)
-              (defmatch (list _ owner repo path branch) m)
-              (unless (member branch '(#f "master"))
-                (error 'init "non-master branch in source: ~s" url))
-              (list owner repo))]
-        [else #f]))
 
 ;; ============================================================
 

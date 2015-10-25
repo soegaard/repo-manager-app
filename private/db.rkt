@@ -3,10 +3,11 @@
          db
          json
          racket/string
+         "catalog.rkt"
          "github.rkt")
 (provide (all-defined-out))
 
-(define AGE-LIMIT (* 60 +inf.0)) ;; seconds
+(define AGE-LIMIT (* 60 60)) ;; seconds
 
 (define the-db-file
   (make-parameter (build-path (find-system-path 'pref-dir) "repo-manager-web-app.db")))
@@ -33,6 +34,13 @@
   (create-table "branch_day"
                 '("owner TEXT NOT NULL" "repo TEXT NOT NULL" "sha TEXT NOT NULL")
                 '("owner" "repo"))
+  ;; pre-release catalog cache
+  (create-table "pre_catalog"
+                '("owner TEXT NOT NULL" "repo TEXT NOT NULL" "sha TEXT NOT NULL")
+                '("owner" "repo"))
+  (create-table "pre_catalog_ts"
+                '("ts INTEGER NOT NULL")
+                '("ts"))
   ;; Github caches
   (create-table "commits"
                 '("owner TEXT NOT NULL" "repo TEXT NOT NULL" "sha TEXT NOT NULL"
@@ -111,6 +119,33 @@
   (let ([ri (db:get-branch owner repo branch)])
     (and ri (ref-sha ri))))
 
+(define (db:get-pre-catalog-sha owner repo #:aga-limit [age-limit AGE-LIMIT])
+  (define-values (sha ts) (db:get-pre-catalog-sha/ts owner repo #:age-limit age-limit))
+  sha)
+
+(define (db:get-pre-catalog-sha/ts owner repo #:age-limit [age-limit AGE-LIMIT])
+  (define ts (query-maybe-value the-db "SELECT ts FROM pre_catalog_ts"))
+  (cond [(and ts (< (current-seconds) (+ ts age-limit)))
+         (values
+          (query-maybe-value the-db
+            "SELECT sha FROM pre_catalog WHERE owner = ? AND repo = ?"
+            owner repo)
+          ts)]
+        [else
+         (db:recache-pre-catalog)
+         (db:get-pre-catalog-sha/ts owner repo #:age-limit +inf.0)]))
+
+(define (db:recache-pre-catalog)
+  (define now (current-seconds))
+  (eprintf "Fetching catalog ... ")
+  (define catalog (get-catalog (src-catalog-url "master")))
+  (eprintf "fetched\n")
+  (for ([(o/r sha) (in-hash (get-checksum-table catalog))])
+    (query-exec the-db
+      "INSERT OR REPLACE INTO pre_catalog (owner, repo, sha) VALUES (?,?,?)"
+      (car o/r) (cadr o/r) sha))
+  (query-exec the-db "INSERT OR REPLACE INTO pre_catalog_ts (ts) VALUES (?)" now))
+
 ;; ============================================================
 
 (define (db:get-manager-repos manager)
@@ -141,28 +176,34 @@
   (define-values (release-ri release-ts) (db:get-ref/ts owner repo "heads/release"))
   (define release-sha (and release-ri (ref-sha release-ri)))
   (define branch-day-sha (db:get-branch-day-sha owner repo))
+  (define-values (pre-catalog-sha pre-catalog-ts) (db:get-pre-catalog-sha/ts owner repo))
   (hash 'owner owner
         'repo repo
-        'last_polled (min master-ts release-ts)
         'branch_day_sha branch-day-sha
+        'last_polled (min master-ts release-ts)
         'master_sha master-sha
         'release_sha release-sha
+        'pre_catalog_sha pre-catalog-sha
         'commits (with-handlers ([exn:fail? exn-message])
-                   (get-annotated-chain owner repo master-sha release-sha branch-day-sha))))
+                   (get-annotated-chain owner repo master-sha release-sha pre-catalog-sha branch-day-sha))))
 
-(define (get-annotated-chain owner repo master-sha release-sha merge-base-sha)
+(define (get-annotated-chain owner repo master-sha release-sha catalog-sha merge-base-sha)
   (define master-chain (get-commit-chain owner repo master-sha merge-base-sha))
   (define release-chain (if release-sha (get-commit-chain owner repo release-sha merge-base-sha) null))
+  (define catalog-chain (if catalog-sha (get-commit-chain owner repo catalog-sha merge-base-sha) null))
   (define picked (chain->picked release-chain))
-  (annotate-chain master-chain picked))
+  (define pre-avail (chain->picked catalog-chain))
+  (annotate-chain master-chain picked pre-avail))
 
-(define (annotate-chain chain picked)
+(define (annotate-chain chain picked pre-avail)
   (for/list ([ci chain])
-    (annotate-commit ci picked)))
+    (annotate-commit ci picked pre-avail)))
 
-(define (annotate-commit ci picked)
+(define (annotate-commit ci picked pre-avail)
   (hash 'info ci
-        'status_actual (if (member (commit-sha ci) picked) "picked" "no")
+        'status_actual (cond [(member (commit-sha ci) pre-avail) "pre-avail"]
+                             [(member (commit-sha ci) picked) "picked"]
+                             [else "no"])
         'status_recommend (if (commit-needs-attention? ci) "attn" "no")))
 
 #|

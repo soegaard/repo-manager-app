@@ -72,13 +72,14 @@
 
 ;; AnnotatedCommitInfo = {
 ;;   info : CommitInfo (see github.rkt),
-;;   status_actual : String (...),
+;;   status_actual : String ("no" | "picked" | "pre-avail"),
 ;;   status_recommend : String (...),
 ;;   _ }
 
 ;; ============================================================
 
 ;; FIXME: add time/rate limit of some sort...
+;; FIXME: check pre-catalog for updates too ?
 (define (poll manager)
   (define repos (db:get-manager-repos manager))
   (define updated
@@ -165,13 +166,13 @@
 ;; FIXME: need to add status text / action listboxes
 (define (commit-block owner repo aci i)
   (define ci (hash-ref aci 'info))
-  (define picked? (equal? (hash-ref aci 'status_actual) "picked"))
+  (define status (hash-ref aci 'status_actual))
   (define attn? (equal? (hash-ref aci 'status_recommend) "attn"))
   (define id (format "commit_~a" (commit-sha ci)))
   (define onclick-code (format "toggle_commit_full_message('~a');" id))
   `(tr ([id ,id]
         [class ,(format "commit_block ~a ~a"
-                        (if picked? "commit_picked" "commit_unpicked")
+                        (if (member status '("picked" "pre-avail")) "commit_picked" "commit_unpicked")
                         (if attn? "commit_attn" "commit_no_attn"))])
     (td ([class "commit_index"]) ,(format "~a" i))
     (td
@@ -183,9 +184,9 @@
           (span ([class "commit_elem commit_msg_line1"]) ,(string-first-line (commit-message ci))))
      (div ([class "commit_full_msg"]) ,@(string-newlines->brs (commit-message ci))))
     (td ([class "commit_action"])
-        ,(if picked?
-             `(span ([class "commit_action_picked"]) "picked")
-             (make-commit-action-select id owner repo (commit-sha ci))))))
+        ,(cond [(or (equal? status "picked") (equal? status "pre-avail"))
+                `(span ([class "commit_action_picked"]) "picked")]
+               [else (make-commit-action-select id owner repo (commit-sha ci))]))))
 
 (define (make-commit-action-select id owner repo sha)
   (define name (format "action_~a" sha))
