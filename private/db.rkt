@@ -1,9 +1,12 @@
 #lang racket/base
-(require db
+(require (rename-in racket/match [match-define defmatch])
+         db
          json
          racket/string
          "github.rkt")
 (provide (all-defined-out))
+
+(define AGE-LIMIT (* 60 +inf.0)) ;; seconds
 
 (define the-db-file
   (make-parameter (build-path (find-system-path 'pref-dir) "repo-manager-web-app.db")))
@@ -62,27 +65,34 @@
               json)]
         [else #f]))
 
-(define (db:get-ref owner repo ref #:github? [github? #t])
-  (define json
-    (cond [(query-maybe-value the-db
-             "SELECT json FROM refs WHERE owner = ? AND repo = ? AND ref = ?"
+(define (db:get-ref owner repo ref #:age-limit [age-limit AGE-LIMIT])
+  (define-values (json ts) (db:get-ref/ts owner repo ref #:age-limit age-limit))
+  json)
+
+(define (db:get-ref/ts owner repo ref #:age-limit [age-limit AGE-LIMIT])
+  (define-values (json ts)
+    (cond [(query-maybe-row the-db
+             "SELECT json, ts FROM refs WHERE owner = ? AND repo = ? AND ref = ?"
              owner repo ref)
-           => string->jsexpr]
-          [github?
-           (db:recache-ref owner repo ref)]
-          [else #f]))
-  (if (equal? json "none") #f json))
+           => (lambda (json+ts)
+                (defmatch (vector json ts) json+ts)
+                (if (< (current-seconds) (+ ts age-limit))
+                    (values (string->jsexpr json) ts)
+                    (db:recache-ref/ts owner repo ref)))]
+          [else (db:recache-ref/ts owner repo ref)]))
+  (values (if (equal? json "none") #f json) ts))
 
 ;; Note: github:get-ref returns "none" when ref doesn't exist, so we can cache nonexistence.
-(define (db:recache-ref owner repo ref)
+(define (db:recache-ref/ts owner repo ref)
+  (define now (current-seconds))
   (cond [(github:get-ref owner repo ref)
          => (lambda (json)
               (eprintf "Querying github for ref ~a/~a/~a\n" owner repo ref)
               (query-exec the-db
                 "INSERT OR REPLACE INTO refs (owner, repo, ref, json, ts) VALUES (?, ?, ?, ?, ?)"
-                owner repo ref (jsexpr->string json) (current-seconds))
-              json)]
-        [else #f]))
+                owner repo ref (jsexpr->string json) now)
+              (values json now))]
+        [else (values #f now)]))
 
 (define (db:get-branch owner repo branch)
   (db:get-ref owner repo (format "heads/~a" branch)))
@@ -114,14 +124,24 @@
 
 ;; ============================================================
 
-(define (get-annotated-master-chain owner repo)
-  (define master-sha (ref-sha (db:get-branch owner repo "master")))
-  (define release-sha
-    (cond [(db:get-branch owner repo "release") => ref-sha]
-          [else (db:get-branch-day-sha owner repo)]))
-  (define merge-base-sha (get-merge-base owner repo master-sha release-sha))
+(define (get-repo-info owner repo)
+  ;; We assume that branch-day is a merge base for master and release
+  (define-values (master-ri master-ts) (db:get-ref/ts owner repo "heads/master"))
+  (define master-sha (ref-sha master-ri))
+  (define-values (release-ri release-ts) (db:get-ref/ts owner repo "heads/release"))
+  (define release-sha (and release-ri (ref-sha release-ri)))
+  (define branch-day-sha (db:get-branch-day-sha owner repo))
+  (hash 'owner owner
+        'repo repo
+        'last_polled (min master-ts release-ts)
+        'branch_day_sha branch-day-sha
+        'master_sha master-sha
+        'release_sha release-sha
+        'commits (get-annotated-chain owner repo master-sha release-sha branch-day-sha)))
+
+(define (get-annotated-chain owner repo master-sha release-sha merge-base-sha)
   (define master-chain (get-commit-chain owner repo master-sha merge-base-sha))
-  (define release-chain (get-commit-chain owner repo release-sha merge-base-sha))
+  (define release-chain (if release-sha (get-commit-chain owner repo release-sha merge-base-sha) null))
   (define picked (chain->picked release-chain))
   (annotate-chain master-chain picked))
 
@@ -134,6 +154,7 @@
         'status_actual (if (member (commit-sha ci) picked) "picked" "no")
         'status_recommend (if (commit-needs-attention? ci) "attn" "no")))
 
+#|
 ;; FIXME: add limit
 (define (get-merge-base owner repo sha1 sha2)
   (define seen (make-hash))
@@ -143,8 +164,8 @@
           [else
            (hash-set! seen sha1 #t)
            (loop sha2 (commit-parent-sha (db:get-commit owner repo sha1)))])))
+|#
 
-;; FIXME: add limit w/ default so we don't run forever
 ;; returns oldest first
 (define (get-commit-chain owner repo start end)
   (let loop ([start start] [chain null])
@@ -165,4 +186,3 @@
 
 (define (commit-needs-attention? ci)
   (regexp-match? #rx"[Mm]erge|[Rr]elease" (commit-message ci)))
-

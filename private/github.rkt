@@ -46,11 +46,6 @@
               #:fail (lambda _ "none")))
 ;; RefInfo = { ref : String, object : { type : "commit", sha : String, _ }, _ }
 
-(define (github:get-branch owner repo branch)
-  (github:get-ref owner repo (format "heads/~a" branch)))
-(define (github:get-tag owner repo tag)
-  (github:get-ref owner repo (format "tags/~a" tag)))
-
 (define (ref-sha ri) (hash-ref (hash-ref ri 'object) 'sha))
 
 

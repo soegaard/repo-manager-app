@@ -2,6 +2,7 @@
 (require (rename-in racket/match [match-define defmatch])
          racket/string
          racket/list
+         racket/date
          racket/runtime-path
          json
          web-server/servlet
@@ -27,7 +28,7 @@
       (repo-section-body owner repo))]
    [("ajax" "todo-html" (string-arg) (string-arg))
     (lambda (req owner repo)
-      (repo-todo-body owner repo))]
+      (repo-todo-body (get-repo-info owner repo)))]
    [("ajax" "poll" (string-arg))
     (lambda (req manager) (poll manager))]
    ))
@@ -36,6 +37,16 @@
   (response/output (lambda (out) (write-json jsexpr out))
                    #:mime-type #"application/json"
                    #:headers headers))
+
+;; RepoInfo = {
+;;   owner : String,
+;;   repo : String,
+;;   last_polled : Date (string or integer???),
+;;   branch_day_sha : String,
+;;   master_sha : String / null,
+;;   release_sha : String / null,
+;;   commits : Arrayof AnnotatedCommitInfo,
+;;   _ }
 
 ;; AnnotatedCommitInfo = {
 ;;   info : CommitInfo (see github.rkt),
@@ -48,15 +59,6 @@
 ;; ManagerInfo = {
 ;;   manager : String,
 ;;   repos : Arrayof { owner : String, repo : String },
-;;   _ }
-;; RepoInfo = {
-;;   owner : String,
-;;   repo : String,
-;;   last_polled : Date (string or integer???),
-;;   branch_day_sha : String,
-;;   current_master_sha : String / null,
-;;   current_release_sha : String / null,
-;;   master_commits : Arrayof AnnotatedCommitInfo,
 ;;   _ }
 
 ;; ============================================================
@@ -72,8 +74,8 @@
           (list (db:get-branch-sha owner repo "master")
                 (db:get-branch-sha owner repo "release")))
         (define old-state (get-state))
-        (db:recache-ref owner repo "heads/master")
-        (db:recache-ref owner repo "heads/release")
+        (db:recache-ref/ts owner repo "heads/master")
+        (db:recache-ref/ts owner repo "heads/release")
         (define new-state (get-state))
         (eprintf "old-state = ~s\n" old-state)
         (eprintf "new-state = ~s\n" new-state)
@@ -81,9 +83,11 @@
              (hash 'owner owner 'repo repo)))))
   (json-response updated))
 
+;; ----------------------------------------
+
 (define (manager-view manager)
   (define repos (db:get-manager-repos manager))
-  
+  (define ris (for/list ([o+r repos]) (defmatch (vector owner repo) o+r) (get-repo-info owner repo)))
   `(html
     (head (title ,(format "Repositories managed by ~a" manager))
           (link ([href "/view.css"]
@@ -98,35 +102,38 @@
      (div ([class "global_head_buttons"])
           ,(make-button "Check for updates" "check_for_updates();"))
      (h1 "Repository recent master commits")
-     ,@(for/list ([repo repos]) (repo-section manager repo))
+     ,@(for/list ([ri ris]) (repo-section ri))
      (h1 "To do summary")
-     ,@(for/list ([repo repos]) (repo-todo-section repo))
+     ,@(for/list ([ri ris]) (repo-todo-section ri))
      (div ([style "endblock"]) nbsp))))
 
-(define (repo-section manager owner+repo)
-  (defmatch (vector owner repo) owner+repo)
+(define (repo-section ri)
+  (define owner (hash-ref ri 'owner))
+  (define repo (hash-ref ri 'repo))
   (define id (format "repo_section_~a_~a" owner repo))
   (define onclick-code (format "toggle_repo_section_body('~a');" id))
-  ;; FIXME: accordion instead, maybe?
   `(div ([class "repo_section"]
          [id ,id])
     (div ([class "repo_head"])
          (div ([class "repo_head_buttons"])
               ,(make-button "Expand all" (format "repo_expand_all('~a');" id))
-              ,(make-button "Collapse all" (format "repo_collapse_all('~a');" id))
-              #| ,(make-ext-link (github:make-repo-link owner repo)) |#)
+              ,(make-button "Collapse all" (format "repo_collapse_all('~a');" id)))
          (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a " owner repo))))
     (div ([class "body_container"])
-         ,(repo-section-body owner repo))))
+         ,(repo-section-body ri))))
 
 (define (make-button label code)
-  `(button ([type "button"]
-            [onclick ,code])
-    ,label))
+  `(button ([type "button"] [onclick ,code]) ,label))
 
-(define (repo-section-body owner repo)
-  (define acis (get-annotated-master-chain owner repo))
+(define (repo-section-body ri)
+  (define owner (hash-ref ri 'owner))
+  (define repo (hash-ref ri 'repo))
+  (define acis (hash-ref ri 'commits))
   `(div
+    (div ([class "repo_status_line"])
+         "Last checked for updates "
+         (span ([class "timeago"]) "at "
+               ,(seconds->datestring (hash-ref ri 'last_polled))))
     (table ([class "repo_section_body"])
            ,@(for/list ([aci acis]) (commit-block owner repo aci)))
     (script ,(format "register_repo_commits('~a', '~a', '~a');"
@@ -140,10 +147,10 @@
   (define attn? (equal? (hash-ref aci 'status_recommend) "attn"))
   (define id (format "commit_~a" (commit-sha ci)))
   (define onclick-code (format "toggle_commit_full_message('~a');" id))
-  `(tr ([class ,(format "commit_block ~a ~a"
+  `(tr ([id ,id]
+        [class ,(format "commit_block ~a ~a"
                         (if picked? "commit_picked" "commit_unpicked")
-                        (if attn? "commit_attn" "commit_no_attn"))]
-        [id ,id])
+                        (if attn? "commit_attn" "commit_no_attn"))])
     (td
      (div ([class "commit_line"]
            [onclick ,onclick-code])
@@ -164,36 +171,41 @@
             [onchange ,(format "update_commit_action('~a', '~a', '~a', '~a');" id owner repo sha)]))
     (label ([for ,name]) "pick")))
 
-(define (repo-todo-section owner+repo)
-  (defmatch (vector owner repo) owner+repo)
+;; ----------------------------------------
+
+(define (repo-todo-section ri)
+  (define owner (hash-ref ri 'owner))
+  (define repo (hash-ref ri 'repo))
   (define id (format "todo_repo_~a_~a" owner repo))
   (define onclick-code (format "toggle_todo_body('~a');" id))
   `(div ([class "todo_section"]
          [id ,id])
     (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a" owner repo)))
     (div ([class "body_container"])
-         ,(repo-todo-body owner repo))))
+         ,(repo-todo-body ri))))
 
-(define (repo-todo-body owner repo)
+(define (repo-todo-body ri)
+  (define owner (hash-ref ri 'owner))
+  (define repo (hash-ref ri 'repo))
   `(div ([class "todo_body"])
     (div ([class "todo_empty"])
          "No todo items for this repo.")
-    ,(repo-todo-prologue owner repo)
-    ,@(for/list ([aci (get-annotated-master-chain owner repo)]
+    ,(repo-todo-prologue ri)
+    ,@(for/list ([aci (hash-ref ri 'commits)]
                  #:when (equal? "no" (hash-ref aci 'status_actual))) ;; FIXME
         (todo-commit-line owner repo (commit-sha (hash-ref aci 'info))))
-    ,(repo-todo-epilogue owner repo)))
+    ,(repo-todo-epilogue)))
 
-(define (repo-todo-prologue owner repo)
-  (cond [(db:get-branch owner repo "release")
+(define (repo-todo-prologue ri)
+  (cond [(hash-ref ri 'release_sha)
          `(div ([class "todo_bookkeeping_line"])
            "git pull; git checkout release")]
         [else
-         (define branch-day-sha (db:get-branch-day-sha owner repo))
          `(div ([class "todo_bookkeeping_line"])
-           "git pull; git checkout -b release " (span ,branch-day-sha))]))
+           "git pull; git checkout -b release "
+           (span ,(hash-ref ri 'branch_day_sha)))]))
 
-(define (repo-todo-epilogue owner repo)
+(define (repo-todo-epilogue)
   `(div ([class "todo_bookkeeping_line"])
     "git push origin release"))
 
@@ -206,6 +218,11 @@
 
 (define (shorten-sha s)
   (substring s 0 8))
+
+(define (seconds->datestring s)
+  (parameterize ((date-display-format 'iso-8601))
+    ;; racket/date doesn't actually do iso-8601 quite right...
+    (string-append (date->string (seconds->date s #f) #t) "Z")))
 
 (define (nicer-date s)
   (string-replace s #rx"[TZ]" " "))

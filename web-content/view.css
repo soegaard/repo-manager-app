@@ -20,6 +20,12 @@ h1, h2 {
 
 .repo_section_body { }
 
+.repo_status_line {
+  font-family: serif;
+  font-style: italic;
+  color: gray;
+}
+
 .todo_section { }
 
 /* ============================================================ */
