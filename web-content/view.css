@@ -25,9 +25,9 @@ h1, h2 {
   border: 1pt solid white;
   font-family: monospace;
 }
-div.commit_block:hover {
-  border-color: gray;
-  border-style: dotted;
+.commit_block:hover {
+  /* background-color: lightgray; */
+  outline: 1pt dotted gray;
 }
 
 .commit_line {
@@ -75,6 +75,34 @@ td.commit_action {
   display : none
 }
 
+/* ============================================================ */
+
+.todo_section {
+  border: 2pt solid darkred;
+  padding: 0pt 6pt}
+.todo_body {
+  font-family: monospace;
+  padding: 0pt 0pt 24pt 0pt;
+}
+
+.todo_commit_line {
+  display: none;
+}
+.todo_commit_sha {}
+
+.todo_bookkeeping_line {
+  display: none;
+}
+
+.todo_empty {
+  /* display: none; */
+  font-family: sans-serif;
+  font-style: italic;
+}
+
+.endblock {
+  padding: 10em 0pt;
+}
 /* ============================================================ */
 
 .external_link { }

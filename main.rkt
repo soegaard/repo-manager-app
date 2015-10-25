@@ -3,6 +3,7 @@
          racket/string
          racket/list
          racket/runtime-path
+         json
          web-server/servlet
          web-server/servlet-env
          web-server/stuffers/serialize
@@ -66,9 +67,8 @@
      (h1 "Repository recent master commits")
      ,@(for/list ([repo repos]) (repo-section manager repo req))
      (h1 "To do summary")
-     (div ([id "todo"]
-           [class "todo_section"])
-          "Not yet implemented"))))
+     ,@(for/list ([repo repos]) (repo-todo-section repo req))
+     (div ([style "endblock"]) nbsp))))
 
 (define (repo-section manager owner+repo req)
   (defmatch (vector owner repo) owner+repo)
@@ -93,8 +93,12 @@
 
 (define (repo-section-body manager owner repo req)
   (define acis (get-annotated-master-chain owner repo))
-  `(table ([class "repo_section_body"])
-    ,@(for/list ([aci acis]) (commit-block manager owner repo aci req))))
+  `(div
+    (table ([class "repo_section_body"])
+           ,@(for/list ([aci acis]) (commit-block manager owner repo aci req)))
+    (script ,(format "register_repo_commits('~a', '~a', '~a');"
+                     owner repo
+                     (jsexpr->string (for/list ([aci acis]) (commit-sha (hash-ref aci 'info))))))))
 
 ;; FIXME: need to add status text / action listboxes
 (define (commit-block manager owner repo aci req)
@@ -118,11 +122,50 @@
     (td ([class "commit_action"])
         ,(if picked?
              `(span ([class "commit_action_picked"]) "picked")
-             (make-commit-action-select id (commit-sha ci))))))
+             (make-commit-action-select id owner repo (commit-sha ci))))))
 
-(define (make-commit-action-select id sha)
+(define (make-commit-action-select id owner repo sha)
   (define name (format "action_~a" sha))
-  `(label (input ([type "checkbox"] [name ,name])) "pick"))
+  `(span
+    (input ([type "checkbox"] [name ,name] [class "commit_pick_checkbox"]
+            [onchange ,(format "update_commit_action('~a', '~a', '~a', '~a');" id owner repo sha)]))
+    (label ([for ,name]) "pick")))
+
+(define (repo-todo-section owner+repo req)
+  (defmatch (vector owner repo) owner+repo)
+  (define id (format "todo_repo_~a_~a" owner repo))
+  (define onclick-code (format "toggle_todo_body('~a');" id))
+  `(div ([class "todo_section"]
+         [id ,id])
+    (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a" owner repo)))
+    (div ([class "todo_body"])
+         (div ([class "todo_empty"])
+              "No todo items for this repo.")
+         ,(repo-todo-prologue owner repo)
+         ,@(for/list ([aci (get-annotated-master-chain owner repo)]
+                      #:when (equal? "no" (hash-ref aci 'status_actual))) ;; FIXME
+             (todo-commit-line owner repo (commit-sha (hash-ref aci 'info))))
+         ,(repo-todo-epilogue owner repo))))
+
+(define (repo-todo-prologue owner repo)
+  (cond [(db:get-branch owner repo "release")
+         `(div ([class "todo_bookkeeping_line"])
+           "git pull; git checkout release")]
+        [else
+         (define branch-day-sha (db:get-branch-day-sha owner repo))
+         `(div ([class "todo_bookkeeping_line"])
+           "git pull; git checkout -b release " (span ,branch-day-sha))]))
+
+(define (repo-todo-epilogue owner repo)
+  `(div ([class "todo_bookkeeping_line"])
+    "git push origin release"))
+
+(define (todo-commit-line owner repo sha)
+  `(div ([class "todo_commit_line"]
+         [id ,(format "todo_commit_~a" sha)])
+    "git cherry-pick -x " (span ([class "todo_commit_sha"]) ,sha)))
+
+;; ============================================================
 
 (define (shorten-sha s)
   (substring s 0 8))
