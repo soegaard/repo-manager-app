@@ -177,7 +177,8 @@
   (define-values (release-ri release-ts) (db:get-ref/ts owner repo "heads/release"))
   (define release-sha (and release-ri (ref-sha release-ri)))
   (define branch-day-sha (db:get-branch-day-sha owner repo))
-  (define-values (pre-catalog-sha pre-catalog-ts) (db:get-pre-catalog-sha/ts owner repo))
+  (define pre-catalog-sha #f)
+  ;; (define-values (pre-catalog-sha pre-catalog-ts) (db:get-pre-catalog-sha/ts owner repo))
   (hash 'owner owner
         'repo repo
         'branch_day_sha branch-day-sha
@@ -206,18 +207,6 @@
                              [(member (commit-sha ci) picked) "picked"]
                              [else "no"])
         'status_recommend (if (commit-needs-attention? ci) "attn" "no")))
-
-#|
-;; FIXME: add limit
-(define (get-merge-base owner repo sha1 sha2)
-  (define seen (make-hash))
-  (let loop ([sha1 sha1] [sha2 sha2])
-    (cond [(hash-ref seen sha1 #f)
-           sha1]
-          [else
-           (hash-set! seen sha1 #t)
-           (loop sha2 (commit-parent-sha (db:get-commit owner repo sha1)))])))
-|#
 
 ;; returns oldest first
 (define (get-commit-chain owner repo start end)
