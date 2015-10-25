@@ -45,7 +45,7 @@
 ;;   branch_day_sha : String,
 ;;   master_sha : String / null,
 ;;   release_sha : String / null,
-;;   commits : Arrayof AnnotatedCommitInfo,
+;;   commits : (Arrayof AnnotatedCommitInfo) or String(error),
 ;;   _ }
 
 ;; AnnotatedCommitInfo = {
@@ -128,18 +128,23 @@
 (define (repo-section-body ri)
   (define owner (hash-ref ri 'owner))
   (define repo (hash-ref ri 'repo))
-  (define acis (hash-ref ri 'commits))
   (define timestamp (seconds->datestring (hash-ref ri 'last_polled)))
-  `(div
-    (div ([class "repo_status_line"])
-         ,(format "~a commits; " (length acis))
-         "last checked for updates "
-         (abbr ([class "timeago"] [title ,timestamp]) "at " ,timestamp))
-    (table ([class "repo_section_body"])
-           ,@(for/list ([aci acis] [i (in-naturals 1)]) (commit-block owner repo aci i)))
-    (script ,(format "register_repo_commits('~a', '~a', '~a');"
-                     owner repo
-                     (jsexpr->string (for/list ([aci acis]) (commit-sha (hash-ref aci 'info))))))))
+  (define acis (hash-ref ri 'commits))
+  (cond [(list? acis)
+         `(div
+           (div ([class "repo_status_line"])
+                ,(format "~a commits; " (length acis))
+                "last checked for updates "
+                (abbr ([class "timeago"] [title ,timestamp]) "at " ,timestamp))
+           (table ([class "repo_section_body"])
+                  ,@(for/list ([aci acis] [i (in-naturals 1)]) (commit-block owner repo aci i)))
+           (script ,(format "register_repo_commits('~a', '~a', '~a');"
+                            owner repo
+                            (jsexpr->string (for/list ([aci acis]) (commit-sha (hash-ref aci 'info)))))))]
+        [else
+         `(div
+           (div ([class "repo_error_line"])
+                ,(format "Error: ~a" acis)))]))
 
 ;; FIXME: need to add status text / action listboxes
 (define (commit-block owner repo aci i)
@@ -190,14 +195,18 @@
 (define (repo-todo-body ri)
   (define owner (hash-ref ri 'owner))
   (define repo (hash-ref ri 'repo))
-  `(div ([class "todo_body"])
-    (div ([class "todo_empty"])
-         "No todo items for this repo.")
-    ,(repo-todo-prologue ri)
-    ,@(for/list ([aci (hash-ref ri 'commits)]
-                 #:when (equal? "no" (hash-ref aci 'status_actual))) ;; FIXME
-        (todo-commit-line owner repo (commit-sha (hash-ref aci 'info))))
-    ,(repo-todo-epilogue)))
+  (define acis (hash-ref ri 'commits))
+  (cond [(list? acis)
+         `(div ([class "todo_body"])
+           (div ([class "todo_empty"])
+                "No todo items for this repo.")
+           ,(repo-todo-prologue ri)
+           ,@(for/list ([aci (hash-ref ri 'commits)]
+                        #:when (equal? "no" (hash-ref aci 'status_actual))) ;; FIXME
+               (todo-commit-line owner repo (commit-sha (hash-ref aci 'info))))
+           ,(repo-todo-epilogue))]
+        [else
+         `(div)]))
 
 (define (repo-todo-prologue ri)
   (cond [(hash-ref ri 'release_sha)

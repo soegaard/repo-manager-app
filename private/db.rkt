@@ -139,7 +139,8 @@
         'branch_day_sha branch-day-sha
         'master_sha master-sha
         'release_sha release-sha
-        'commits (get-annotated-chain owner repo master-sha release-sha branch-day-sha)))
+        'commits (with-handlers ([exn:fail? exn-message])
+                   (get-annotated-chain owner repo master-sha release-sha branch-day-sha))))
 
 (define (get-annotated-chain owner repo master-sha release-sha merge-base-sha)
   (define master-chain (get-commit-chain owner repo master-sha merge-base-sha))
@@ -178,13 +179,14 @@
            (loop (commit-parent-sha ci) (cons ci chain))])))
 
 (define (chain->picked chain)
-  (filter string? (map commit->picked chain)))
+  (apply append (map commit->picked chain)))
 
 (define (commit->picked ci)
   (define msg (commit-message ci))
-  (cond [(regexp-match #rx"\\(cherry picked from commit ([0-9a-z]*)\\)" msg)
-         => cadr]
-        [else #f]))
+  (cons (commit-sha ci)
+        (cond [(regexp-match #rx"\\(cherry picked from commit ([0-9a-z]*)\\)" msg)
+               => cdr]
+              [else null])))
 
 (define (commit-needs-attention? ci)
   (regexp-match? #rx"[Mm]erge|[Rr]elease" (commit-message ci)))
