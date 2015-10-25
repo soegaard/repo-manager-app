@@ -144,6 +144,7 @@
     (query-exec the-db
       "INSERT OR REPLACE INTO pre_catalog (owner, repo, sha) VALUES (?,?,?)"
       (car o/r) (cadr o/r) sha))
+  (query-exec the-db "DELETE FROM pre_catalog_ts;")
   (query-exec the-db "INSERT OR REPLACE INTO pre_catalog_ts (ts) VALUES (?)" now))
 
 ;; ============================================================
