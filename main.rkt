@@ -132,16 +132,17 @@
   (define timestamp (seconds->datestring (hash-ref ri 'last_polled)))
   `(div
     (div ([class "repo_status_line"])
-         "Last checked for updates "
+         ,(format "~a commits; " (length acis))
+         "last checked for updates "
          (abbr ([class "timeago"] [title ,timestamp]) "at " ,timestamp))
     (table ([class "repo_section_body"])
-           ,@(for/list ([aci acis]) (commit-block owner repo aci)))
+           ,@(for/list ([aci acis] [i (in-naturals 1)]) (commit-block owner repo aci i)))
     (script ,(format "register_repo_commits('~a', '~a', '~a');"
                      owner repo
                      (jsexpr->string (for/list ([aci acis]) (commit-sha (hash-ref aci 'info))))))))
 
 ;; FIXME: need to add status text / action listboxes
-(define (commit-block owner repo aci)
+(define (commit-block owner repo aci i)
   (define ci (hash-ref aci 'info))
   (define picked? (equal? (hash-ref aci 'status_actual) "picked"))
   (define attn? (equal? (hash-ref aci 'status_recommend) "attn"))
@@ -151,6 +152,7 @@
         [class ,(format "commit_block ~a ~a"
                         (if picked? "commit_picked" "commit_unpicked")
                         (if attn? "commit_attn" "commit_no_attn"))])
+    (td ([class "commit_index"]) ,(format "~a" i))
     (td
      (div ([class "commit_line"]
            [onclick ,onclick-code])
@@ -167,9 +169,10 @@
 (define (make-commit-action-select id owner repo sha)
   (define name (format "action_~a" sha))
   `(span
-    (input ([type "checkbox"] [name ,name] [class "commit_pick_checkbox"]
-            [onchange ,(format "update_commit_action('~a', '~a', '~a', '~a');" id owner repo sha)]))
-    (label ([for ,name]) "pick")))
+    (label
+     (input ([type "checkbox"] [name ,name] [class "commit_pick_checkbox"]
+             [onchange ,(format "update_commit_action('~a', '~a', '~a', '~a');" id owner repo sha)]))
+     "pick")))
 
 ;; ----------------------------------------
 

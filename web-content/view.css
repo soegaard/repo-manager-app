@@ -7,6 +7,10 @@ h1, h2 {
     float: right;
 }
 
+td {
+  padding: 0pt 4pt;
+}
+
 /* ============================================================ */
 
 .repo_section {
@@ -29,6 +33,12 @@ h1, h2 {
 .todo_section { }
 
 /* ============================================================ */
+
+td.commit_index {
+  font-family: sans-serif;
+  font-size: x-small;
+  color: gray;
+}
 
 .commit_block { 
   padding: 2pt;
@@ -60,7 +70,10 @@ h1, h2 {
 .commit_no_attn {}
 
 td.commit_action {
+  text-align: center;
+/*
   vertical-align: top;
+*/
 }
 
 .commit_action_picked {
