@@ -19,13 +19,17 @@
 (define-values (dispatch _make-url)
   (dispatch-rules
    [("view" (string-arg))
-    (lambda (req manager) (manager-view manager req))]
+    (lambda (req manager) (manager-view manager))]
    [("ajax" "manager" (string-arg))
     '(lambda (req manager) ...)]
-   [("ajax" "repo" (string-arg) (string-arg))
-    '(lambda (req owner repo) ....)]
+   [("ajax" "repo-html" (string-arg) (string-arg))
+    (lambda (req owner repo)
+      (repo-section-body owner repo))]
+   [("ajax" "todo-html" (string-arg) (string-arg))
+    (lambda (req owner repo)
+      (repo-todo-body owner repo))]
    [("ajax" "poll" (string-arg))
-    (lambda (req manager) (poll manager req))]
+    (lambda (req manager) (poll manager))]
    ))
 
 (define (json-response jsexpr #:headers [headers null])
@@ -58,7 +62,7 @@
 ;; ============================================================
 
 ;; FIXME: add time/rate limit of some sort...
-(define (poll manager req)
+(define (poll manager)
   (define repos (db:get-manager-repos manager))
   (define updated
     (filter values
@@ -77,7 +81,7 @@
              (hash 'owner owner 'repo repo)))))
   (json-response updated))
 
-(define (manager-view manager req)
+(define (manager-view manager)
   (define repos (db:get-manager-repos manager))
   
   `(html
@@ -94,12 +98,12 @@
      (div ([class "global_head_buttons"])
           ,(make-button "Check for updates" "check_for_updates();"))
      (h1 "Repository recent master commits")
-     ,@(for/list ([repo repos]) (repo-section manager repo req))
+     ,@(for/list ([repo repos]) (repo-section manager repo))
      (h1 "To do summary")
-     ,@(for/list ([repo repos]) (repo-todo-section repo req))
+     ,@(for/list ([repo repos]) (repo-todo-section repo))
      (div ([style "endblock"]) nbsp))))
 
-(define (repo-section manager owner+repo req)
+(define (repo-section manager owner+repo)
   (defmatch (vector owner repo) owner+repo)
   (define id (format "repo_section_~a_~a" owner repo))
   (define onclick-code (format "toggle_repo_section_body('~a');" id))
@@ -112,24 +116,25 @@
               ,(make-button "Collapse all" (format "repo_collapse_all('~a');" id))
               #| ,(make-ext-link (github:make-repo-link owner repo)) |#)
          (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a " owner repo))))
-    ,(repo-section-body manager owner repo req)))
+    (div ([class "body_container"])
+         ,(repo-section-body owner repo))))
 
 (define (make-button label code)
   `(button ([type "button"]
             [onclick ,code])
     ,label))
 
-(define (repo-section-body manager owner repo req)
+(define (repo-section-body owner repo)
   (define acis (get-annotated-master-chain owner repo))
   `(div
     (table ([class "repo_section_body"])
-           ,@(for/list ([aci acis]) (commit-block manager owner repo aci req)))
+           ,@(for/list ([aci acis]) (commit-block owner repo aci)))
     (script ,(format "register_repo_commits('~a', '~a', '~a');"
                      owner repo
                      (jsexpr->string (for/list ([aci acis]) (commit-sha (hash-ref aci 'info))))))))
 
 ;; FIXME: need to add status text / action listboxes
-(define (commit-block manager owner repo aci req)
+(define (commit-block owner repo aci)
   (define ci (hash-ref aci 'info))
   (define picked? (equal? (hash-ref aci 'status_actual) "picked"))
   (define attn? (equal? (hash-ref aci 'status_recommend) "attn"))
@@ -159,21 +164,25 @@
             [onchange ,(format "update_commit_action('~a', '~a', '~a', '~a');" id owner repo sha)]))
     (label ([for ,name]) "pick")))
 
-(define (repo-todo-section owner+repo req)
+(define (repo-todo-section owner+repo)
   (defmatch (vector owner repo) owner+repo)
   (define id (format "todo_repo_~a_~a" owner repo))
   (define onclick-code (format "toggle_todo_body('~a');" id))
   `(div ([class "todo_section"]
          [id ,id])
     (h2 (span ([onclick ,onclick-code]) ,(format "~a/~a" owner repo)))
-    (div ([class "todo_body"])
-         (div ([class "todo_empty"])
-              "No todo items for this repo.")
-         ,(repo-todo-prologue owner repo)
-         ,@(for/list ([aci (get-annotated-master-chain owner repo)]
-                      #:when (equal? "no" (hash-ref aci 'status_actual))) ;; FIXME
-             (todo-commit-line owner repo (commit-sha (hash-ref aci 'info))))
-         ,(repo-todo-epilogue owner repo))))
+    (div ([class "body_container"])
+         ,(repo-todo-body owner repo))))
+
+(define (repo-todo-body owner repo)
+  `(div ([class "todo_body"])
+    (div ([class "todo_empty"])
+         "No todo items for this repo.")
+    ,(repo-todo-prologue owner repo)
+    ,@(for/list ([aci (get-annotated-master-chain owner repo)]
+                 #:when (equal? "no" (hash-ref aci 'status_actual))) ;; FIXME
+        (todo-commit-line owner repo (commit-sha (hash-ref aci 'info))))
+    ,(repo-todo-epilogue owner repo)))
 
 (define (repo-todo-prologue owner repo)
   (cond [(db:get-branch owner repo "release")

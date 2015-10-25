@@ -12,6 +12,9 @@ function register_repo_commits(owner, repo, commits) {
     commits = JSON.parse(commits);
     // console.log('register ' + key + ' = ' + commits);
     repo_commits.set(key, commits);
+    $.each(commits, function(index, commit) {
+        commits_picked.set(commit, false);
+    });
     $.ready(function() { todo_repo_update(owner, repo); });
 }
 
@@ -30,7 +33,25 @@ function check_for_updates() {
         url : '/ajax/poll/' + manager,
         dataType : 'json',
         success : function(data) {
-            console.log('data = ' + JSON.stringify(data));
+            // console.log('data = ' + JSON.stringify(data));
+            $.each(data, function(index, entry) {
+                update_body_container('repo_section_' + entry.owner + '_' + entry.repo,
+                                      '/ajax/repo-html/' + entry.owner + '/' + entry.repo);
+                update_body_container('todo_repo_' + entry.owner + '_' + entry.repo,
+                                      '/ajax/todo-html/' + entry.owner + '/' + entry.repo);
+            });
+        }
+    });
+}
+
+function update_body_container(id, url) {
+    var s = select_id(id).find('.body_container');
+    $.ajax({
+        url : url,
+        dataType : 'html',
+        success : function(contents) {
+            s.html(contents);
+            // console.log('updated ' + id);
         }
     });
 }
