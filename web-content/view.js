@@ -129,3 +129,76 @@ function todo_repo_update(owner, repo) {
     select_id('todo_repo_' + owner + '_' + repo).find('.todo_bookkeeping_line').toggle(show_bookkeeping);
     select_id('todo_repo_' + owner + '_' + repo).find('.todo_empty').toggle(!show_bookkeeping);
 }
+
+
+/* ============================================================
+   Javascript templating */
+
+var template_repo_section = null;
+var template_repo_body = null;
+
+function initialize_for_manager(m) {
+    manager = m;
+    template_repo_section = Handlebars.compile($('#template_repo_section').html());
+    template_repo_body = Handlebars.compile($('#template_repo_body').html());
+
+    $.ajax({
+        url : '/ajax/manager/' + m,
+        dataType : 'json',
+        success : function(repos) {
+            $.each(repos, function(index, r) {
+                add_repo_section(r.owner, r.repo);
+            });
+        }
+    });
+}
+
+function add_repo_section(owner, repo) {
+    $.ajax({
+        url : '/ajax/repo/' + owner + '/' + repo,
+        dataType: 'json',
+        success : function(ri) {
+            add_repo_section_w_info(ri);
+        }
+    });
+}
+
+function add_repo_section_w_info(info) {
+    augment_repo_info(info);
+    $(template_repo_section(info)).appendTo('#repo_section_container');
+    $(template_repo_body(info)).appendTo(select_id(info.id).find('.body_container'));
+    select_id(info.id).find('.timeago').timeago();
+}
+
+function augment_repo_info(info) {
+    info.id = 'repo_section_' + info.owner + '_' + info.repo;
+    info.ncommits = info.commits.length;
+    info.timestamp = (new Date(info.last_polled * 1000)).toISOString();
+    $.each(info.commits, function(index, ci) { augment_commit_info(index, ci); });
+}
+
+function augment_commit_info(index, info) {
+    info.id = 'commit_' + info.info.sha;
+    info.class_picked =
+        (info.status_actual === "picked") ? "commit_picked" : "commit_unpicked";
+    info.class_attn = 
+        (info.status_recommend === "attn") ? "commit_attn" : "commit_no_attn";
+    info.index = index + 1;
+    info.sha = info.info.sha;
+    info.short_sha = info.sha.substring(0,8);
+    info.message_line1 = get_message_line1(info.info.message);
+    info.message_lines = get_message_lines(info.info.message);
+    info.is_picked = (info.status_actual === "picked");
+}
+
+function get_message_line1(message) {
+    return message.split("\n")[0];
+}
+
+function get_message_lines(message) {
+    var lines = message.split("\n");
+    for (var i = 0; i < lines.length; ++i) {
+        lines[i] = Handlebars.escapeExpression(lines[i]) + '<br/>';
+    }
+    return (lines.join(" "));
+}

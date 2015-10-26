@@ -53,6 +53,21 @@
     (lambda (req manager)
       (unless (ok-manager? manager) (error 'page "unknown manager: ~e" manager))
       (poll manager))]
+
+   [("viewx" (string-arg))
+    (lambda (req manager)
+      (unless (ok-manager? manager) (error 'page "unknown manager: ~e" manager))
+      (manager-viewx manager))]
+   [("ajax" "manager" (string-arg))
+    (lambda (req manager)
+      (unless (ok-manager? manager) (error 'page "unknown manager: ~e" manager))
+      (json-response
+       (for/list ([entry (db:get-manager-repos manager)])
+         (hash 'owner (vector-ref entry 0) 'repo (vector-ref entry 1)))))]
+   [("ajax" "repo" (string-arg) (string-arg))
+    (lambda (req owner repo)
+      (unless (ok-repo? owner repo) (error 'page "bad repo: ~e, ~e" owner repo))
+      (json-response (get-repo-info owner repo)))]
    ))
 
 (define (json-response jsexpr #:headers [headers null])
@@ -96,6 +111,89 @@
         (and (not (equal? new-state old-state))
              (hash 'owner owner 'repo repo)))))
   (json-response updated))
+
+;; ----------------------------------------
+
+(define (manager-viewx manager)
+  `(html
+    (head (link ([href "/view.css"]
+                 [rel "stylesheet"]
+                 [type "text/css"]))
+          (script ([src "/jquery-2.1.4.min.js"]
+                   [type "text/javascript"]))
+          (script ([src "/jquery.timeago.js"]
+                   [type "text/javascript"]))
+          (script ([src "/handlebars-v4.0.2.js"]
+                   [type "text/javascript"]))
+          (script ([src "/view.js"]
+                   [type "text/javascript"]))
+
+          ;; { owner, repo }
+          (script ([id "template_repo_section"]
+                   [type "application/x-template"])
+            (div ([class "repo_section"]
+                  [id "{{id}}"])
+              (div ([class "repo_head"])
+                (div ([class "repo_head_buttons"])
+                  (button ([type "button"]
+                           [onclick "repo_expand_all('{{id}}');"])
+                          "Expand all")
+                  (button ([type "buttom"]
+                           [onclick "repo_collapse_all('{{id}}');"])
+                          "Collapse all"))
+                (h2 (span ([onclick "toggle_body('{{id}}');"])
+                          "{{owner}}/{{repo}}")))
+              (div ([class "body_container"]))))
+
+          ;; { ower, repo, ncommits, timestamp, commits : [ Commit, ... ] }
+          ;; Commit = {id, class_picked, class_attn, index, short_sha, sha,
+          ;;           author.date, author.name, message_line1, message, is_picked }
+          (script ([id "template_repo_body"]
+                   [type "application/x-template"])
+            (div
+             (div ([class "repo_status_line"])
+                  "{{ncommits}} commits since branch day; "
+                  "last checked for updates "
+                  (abbr ([class "timeago"] [title "{{timestamp}}"])
+                        "at {{timestamp}}"))
+             (table ([class "repo_section_body"])
+               "{{#each commits}}"
+               (tr ([id "{{id}}"]
+                    [class "commit_block {{class_picked}} {{class_attn}}"])
+                 (td ([class "commit_index"]) "{{index}}")
+                 (td
+                  (div ([class "commit_line"]
+                        [onclick "toggle_commit_full_message('{{id}}');"])
+                    (span ([class "commit_elem commit_sha"]) "{{short_sha}}")
+                    (span ([class "commit_elem commit_date"]) "{{author.date}}")
+                    (span ([class "commit_elem commit_author"]) "{{author.name}}")
+                    (span ([class "commit_elem commit_msg_line1"]) "{{message_line1}}"))
+                  (div ([class "commit_full_msg"])
+                       "{{{message_lines}}}"))
+                 (td ([class "commit_action"])
+                   "{{#if is_picked}}"
+                   (span ([class "commit_action_picked"]) "picked")
+                   "{{else}}"
+                   (label
+                    (input ([type "checkbox"] [name "action_{{sha}}"]
+                            [class "commit_pick_checkbox"]
+                            [onchange "update_commit_action('{{id}}','{{owner}}','{{repo}}','{{sha}}');"]))
+                    "pick")
+                   "{{/if}}"))
+               "{{/each}}")))
+          )
+
+    (body
+     (div ([class "global_head_buttons"])
+       (button ([type "button"] [onclick "check_for_updates();"]) "Check for updates"))
+     (h1 "Repository recent master commits")
+     (div ([id "repo_section_container"]))
+     ;; ,@(for/list ([ri ris]) (repo-section ri))
+     (h1 "To do summary")
+     (div ([id "repo_todo_container"]))
+     ;; ,@(for/list ([ri ris]) (repo-todo-section ri))
+     (div ([style "endblock"]) nbsp)
+     (script ,(format "initialize_for_manager('~a');" manager)))))
 
 ;; ----------------------------------------
 
