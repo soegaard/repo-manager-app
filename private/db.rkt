@@ -150,7 +150,9 @@
 ;; ============================================================
 
 (define (db:get-manager-repos manager)
-  (query-rows the-db "SELECT owner, repo FROM managers WHERE manager = ?" manager))
+  (query-rows the-db
+    "SELECT owner, repo FROM managers WHERE manager = ? ORDER BY owner, repo"
+    manager))
 
 (define (db:create-manager manager owner+repo-list)
   (call-with-transaction the-db

@@ -151,6 +151,7 @@
           (script ([id "template_repo_body"]
                    [type "application/x-template"])
             (div
+             "{{#if commits_ok}}"
              (div ([class "repo_status_line"])
                   "{{ncommits}} commits since branch day; "
                   "last checked for updates "
@@ -177,10 +178,48 @@
                    (label
                     (input ([type "checkbox"] [name "action_{{sha}}"]
                             [class "commit_pick_checkbox"]
-                            [onchange "update_commit_action('{{id}}','{{owner}}','{{repo}}','{{sha}}');"]))
+                            [onchange "update_commit_action('{{id}}','{{../owner}}','{{../repo}}','{{sha}}');"]))
                     "pick")
                    "{{/if}}"))
-               "{{/each}}")))
+               "{{/each}}")
+             "{{else}}"
+             (div ([class "repo_error_line"]) "Error: {{error_line}}")
+             "{{/if}}"))
+
+          (script ([id "template_todo_section"]
+                   [type "application/x-template"])
+            (div ([class "todo_section"]
+                  [id "{{todo_id}}"])
+              (h3 (span ([onclick "toggle_body('{{todo_id}}');"])
+                        "{{owner}}/{{repo}}"))
+              (div ([class "body_container"]))))
+
+          (script ([id "template_todo_body"]
+                   [type "application/x-template"])
+            "{{#if commits_ok}}"
+            (div ([class "todo_body"])
+              (div ([class "todo_empty"])
+                   "No todo items for this repo.")
+              ;; Prologue
+              "{{#if release_sha}}"
+              (div ([class "todo_bookkeeping_line"])
+                   "git pull; git checkout release")
+              "{{else}}"
+              (div ([class "todo_bookkeeping_line"])
+                   "git pull; git checkout -b release {{branch_day_sha}}")
+              "{{/if}}"
+              ;; Commit lines
+              "{{#each commits}}"
+              "{{#unless is_picked}}"
+              (div ([class "todo_commit_line"]
+                    [id "todo_commit_{{sha}}"])
+                "git cherry-pick -x " (span ([class "todo_commit_sha"]) "{{sha}}"))
+              "{{/unless}}"
+              "{{/each}}"
+              ;; Epilogue
+              (div ([class "todo_bookkeeping_line"])
+                   "git push origin release"))
+            "{{/if}}")
           )
 
     (body
@@ -190,7 +229,7 @@
      (div ([id "repo_section_container"]))
      ;; ,@(for/list ([ri ris]) (repo-section ri))
      (h1 "To do summary")
-     (div ([id "repo_todo_container"]))
+     (div ([id "todo_section_container"]))
      ;; ,@(for/list ([ri ris]) (repo-todo-section ri))
      (div ([style "endblock"]) nbsp)
      (script ,(format "initialize_for_manager('~a');" manager)))))

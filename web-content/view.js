@@ -8,9 +8,12 @@ var commits_picked = new Map();  // sha : String => boolean
 
 // register_repo_commits : String, String, Arrayof String -> Void
 function register_repo_commits(owner, repo, commits) {
+    register_repo_commit_list(owner, repo, JSON.parse(commits));
+}
+
+function register_repo_commit_list(owner, repo, commits) {
     var key = owner + '/' + repo;
-    commits = JSON.parse(commits);
-    // console.log('register ' + key + ' = ' + commits);
+    // console.log("setting repo_commits for " + key + " to " + commits);
     repo_commits.set(key, commits);
     $.each(commits, function(index, commit) {
         commits_picked.set(commit, false);
@@ -118,7 +121,8 @@ function toggle_todo_body(id) {
 
 function todo_repo_update(owner, repo) {
     var show_bookkeeping = false;
-
+    // console.log("in todo_repo_update, owner = " + owner + ", repo = " + repo);
+    // console.log("commits = " + get_repo_commits(owner, repo));
     $.each(get_repo_commits(owner, repo), function(index, sha) {
         var show_commit = commits_picked.get(sha) || false;
         // console.log('commit ' + sha + ' => ' + show_commit);
@@ -136,11 +140,15 @@ function todo_repo_update(owner, repo) {
 
 var template_repo_section = null;
 var template_repo_body = null;
+var template_todo_section = null;
+var template_todo_body = null;
 
 function initialize_for_manager(m) {
     manager = m;
     template_repo_section = Handlebars.compile($('#template_repo_section').html());
     template_repo_body = Handlebars.compile($('#template_repo_body').html());
+    template_todo_section = Handlebars.compile($('#template_todo_section').html());
+    template_todo_body = Handlebars.compile($('#template_todo_body').html());
 
     $.ajax({
         url : '/ajax/manager/' + m,
@@ -165,16 +173,32 @@ function add_repo_section(owner, repo) {
 
 function add_repo_section_w_info(info) {
     augment_repo_info(info);
+
     $(template_repo_section(info)).appendTo('#repo_section_container');
     $(template_repo_body(info)).appendTo(select_id(info.id).find('.body_container'));
     select_id(info.id).find('.timeago').timeago();
+
+    $(template_todo_section(info)).appendTo('#todo_section_container');
+    $(template_todo_body(info)).appendTo(select_id(info.todo_id).find('.body_container'));
+    select_id(info.todo_id).find('.timeago').timeago();
+
+    register_repo_commit_list(
+        info.owner, info.repo,
+        $.map(info.commits, function(ci) { return ci.sha; }));
 }
 
 function augment_repo_info(info) {
     info.id = 'repo_section_' + info.owner + '_' + info.repo;
-    info.ncommits = info.commits.length;
+    info.todo_id = 'todo_repo_' + info.owner + '_' + info.repo;
+    info.commits_ok = Array.isArray(info.commits);
+    info.ncommits = info.commits_ok ? info.commits.length : 0;
+    info.error_line = info.commits_ok ? "" : info.commits;
     info.timestamp = (new Date(info.last_polled * 1000)).toISOString();
-    $.each(info.commits, function(index, ci) { augment_commit_info(index, ci); });
+    if (info.commits_ok) {
+        $.each(info.commits, function(index, ci) { augment_commit_info(index, ci); });
+    } else {
+        info.commits = [];
+    }
 }
 
 function augment_commit_info(index, info) {
