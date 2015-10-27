@@ -1,4 +1,3 @@
-
 /* ============================================================
    Data */
 
@@ -6,14 +5,8 @@ var manager = null;
 var repo_commits = new Map();    // owner/repo : String => shas : Arrayof String
 var commits_picked = new Map();  // sha : String => boolean
 
-// register_repo_commits : String, String, Arrayof String -> Void
-function register_repo_commits(owner, repo, commits) {
-    register_repo_commit_list(owner, repo, JSON.parse(commits));
-}
-
 function register_repo_commit_list(owner, repo, commits) {
     var key = owner + '/' + repo;
-    // console.log("setting repo_commits for " + key + " to " + commits);
     repo_commits.set(key, commits);
     $.each(commits, function(index, commit) {
         commits_picked.set(commit, false);
@@ -27,54 +20,33 @@ function get_repo_commits(owner, repo) {
 }
 
 function set_commit_will_pick(sha, will_pick) {
-    // console.log('setting check = ' + will_pick + ' for ' + sha);
     commits_picked.set(sha, will_pick);
 }
 
-function check_for_updates() {
+/* ============================================================
+   Ajax */
+
+function ajax_poll(manager, k) {
     $.ajax({
         url : '/ajax/poll/' + manager,
         dataType : 'json',
-        success : function(data) {
-            var now = (new Date()).toISOString();
-            var s = $('.repo_status_line abbr.timeago');
-            s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
-            s = $('abbr.timeago');
-            s.timeago();
-            $.each(data, function(index, entry) {
-                update_body_container('repo_section_' + entry.owner + '_' + entry.repo,
-                                      '/ajax/repo-html/' + entry.owner + '/' + entry.repo);
-                update_body_container('todo_repo_' + entry.owner + '_' + entry.repo,
-                                      '/ajax/todo-html/' + entry.owner + '/' + entry.repo);
-            });
-        }
+        success : k
     });
 }
 
-function update_body_container(id, url) {
-    var s = select_id(id).find('.body_container');
+function ajax_manager_repos(manager, k) {
     $.ajax({
-        url : url,
-        dataType : 'html',
-        success : function(contents) {
-            s.html(contents);
-            $('abbr.timeago').timeago();
-        }
+        url : '/ajax/manager/' + manager,
+        dataType : 'json',
+        success : k
     });
 }
 
-/* Mysteriously, the document ready handler was getting called after
- * one repo_section even when there were multiple sections on the
- * page. */
-function final_setup() {
-    // Clear all of the checkboxes
-    $(document).ready(function($) {
-        $('.commit_pick_checkbox').each(function(index, elem) { 
-            elem.checked = false; 
-        });
-        $('abbr.timeago').timeago();
-        // console.log('timeago selector length = ' + $('.timeago').length);
-        // console.log('body container length = ' + $('.body_container').length);
+function ajax_repo_info(owner, repo, k) {
+    $.ajax({
+        url : '/ajax/repo/' + owner + '/' + repo,
+        dataType: 'json',
+        success : k
     });
 }
 
@@ -121,19 +93,16 @@ function toggle_todo_body(id) {
 
 function todo_repo_update(owner, repo) {
     var show_bookkeeping = false;
-    // console.log("in todo_repo_update, owner = " + owner + ", repo = " + repo);
-    // console.log("commits = " + get_repo_commits(owner, repo));
     $.each(get_repo_commits(owner, repo), function(index, sha) {
         var show_commit = commits_picked.get(sha) || false;
-        // console.log('commit ' + sha + ' => ' + show_commit);
         select_id('todo_commit_' + sha).toggle(show_commit);
         show_bookkeeping = show_bookkeeping || show_commit;
     });
 
-    select_id('todo_repo_' + owner + '_' + repo).find('.todo_bookkeeping_line').toggle(show_bookkeeping);
-    select_id('todo_repo_' + owner + '_' + repo).find('.todo_empty').toggle(!show_bookkeeping);
+    var todo_id = 'todo_repo_' + owner + '_' + repo;
+    select_id(todo_id).find('.todo_bookkeeping_line').toggle(show_bookkeeping);
+    select_id(todo_id).find('.todo_empty').toggle(!show_bookkeeping);
 }
-
 
 /* ============================================================
    Javascript templating */
@@ -150,18 +119,14 @@ function initialize_for_manager(m) {
     template_todo_section = Handlebars.compile($('#template_todo_section').html());
     template_todo_body = Handlebars.compile($('#template_todo_body').html());
 
-    $.ajax({
-        url : '/ajax/manager/' + m,
-        dataType : 'json',
-        success : function(repos) {
-            // Add stubs sync'ly for ordering, then fill in async'ly
-            $.each(repos, function(index, r) {
-                add_repo_stubs(r.owner, r.repo);
-            });
-            $.each(repos, function(index, r) {
-                add_repo_section(r.owner, r.repo);
-            });
-        }
+    ajax_manager_repos(m, function(repos) {
+        // Add stubs sync'ly for ordering, then fill in async'ly
+        $.each(repos, function(index, r) {
+            add_repo_stubs(r.owner, r.repo);
+        });
+        $.each(repos, function(index, r) {
+            add_repo_section(r.owner, r.repo);
+        });
     });
 }
 
@@ -176,12 +141,8 @@ function add_repo_stubs(owner, repo) {
 }
 
 function add_repo_section(owner, repo) {
-    $.ajax({
-        url : '/ajax/repo/' + owner + '/' + repo,
-        dataType: 'json',
-        success : function(ri) {
-            add_repo_section_w_info(ri);
-        }
+    ajax_repo_info(owner, repo, function(ri) {
+        add_repo_section_w_info(ri);
     });
 }
 
@@ -249,28 +210,67 @@ function get_message_lines(message) {
 }
 
 function checkx_for_updates() {
-    $.ajax({
-        url : '/ajax/poll/' + manager,
-        dataType : 'json',
-        success : function(data) {
-            var now = (new Date()).toISOString();
-            var s = $('.repo_status_line abbr.timeago');
-            s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
-            $('abbr.timeago').timeago();
-            $.each(data, function(index, entry) {
-                console.log("update " + entry.owner + '/' + entry.repo);
-                update_repo_section(entry.owner, entry.repo);
-            });
-        }
+    ajax_poll(manager, function(data) {
+        var now = (new Date()).toISOString();
+        var s = $('.repo_status_line abbr.timeago');
+        s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
+        $('abbr.timeago').timeago();
+        $.each(data, function(index, entry) {
+            update_repo_section(entry.owner, entry.repo);
+        });
     });
 }
 
 function update_repo_info(owner, repo) {
+    ajax_repo_info(owner, repo, function(ri) {
+        update_repo_w_info(ri);
+    });
+}
+
+/* ============================================================
+   Old-style support code */
+
+function register_repo_commits(owner, repo, commits) {
+    register_repo_commit_list(owner, repo, JSON.parse(commits));
+}
+
+function check_for_updates() {
+    ajax_poll(manager, function(data) {
+        var now = (new Date()).toISOString();
+        var s = $('.repo_status_line abbr.timeago');
+        s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
+        s = $('abbr.timeago');
+        s.timeago();
+        $.each(data, function(index, entry) {
+            update_body_container('repo_section_' + entry.owner + '_' + entry.repo,
+                                  '/ajax/repo-html/' + entry.owner + '/' + entry.repo);
+            update_body_container('todo_repo_' + entry.owner + '_' + entry.repo,
+                                  '/ajax/todo-html/' + entry.owner + '/' + entry.repo);
+        });
+    });
+}
+
+function update_body_container(id, url) {
+    var s = select_id(id).find('.body_container');
     $.ajax({
-        url : '/ajax/repo/' + owner + '/' + repo,
-        dataType : 'json',
-        success : function(ri) {
-            update_repo_w_info(ri);
+        url : url,
+        dataType : 'html',
+        success : function(contents) {
+            s.html(contents);
+            $('abbr.timeago').timeago();
         }
+    });
+}
+
+/* Mysteriously, the document ready handler was getting called after
+ * one repo_section even when there were multiple sections on the
+ * page. */
+function final_setup() {
+    // Clear all of the checkboxes
+    $(document).ready(function($) {
+        $('.commit_pick_checkbox').each(function(index, elem) { 
+            elem.checked = false; 
+        });
+        $('abbr.timeago').timeago();
     });
 }
