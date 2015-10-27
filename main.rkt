@@ -190,9 +190,10 @@
                    [type "application/x-template"])
             (div ([class "todo_section"]
                   [id "{{todo_id}}"])
-              (h3 (span ([onclick "toggle_body('{{todo_id}}');"])
-                        "{{owner}}/{{repo}}"))
-              (div ([class "body_container"]))))
+              (div ([class "todo_bookkeeping_line"])
+                (h3 (span ([onclick "toggle_body('{{todo_id}}');"])
+                          "{{owner}}/{{repo}}"))
+                (div ([class "body_container"])))))
 
           (script ([id "template_todo_body"]
                    [type "application/x-template"])
