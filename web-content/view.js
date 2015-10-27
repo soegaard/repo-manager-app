@@ -154,11 +154,25 @@ function initialize_for_manager(m) {
         url : '/ajax/manager/' + m,
         dataType : 'json',
         success : function(repos) {
+            // Add stubs sync'ly for ordering, then fill in async'ly
+            $.each(repos, function(index, r) {
+                add_repo_stubs(r.owner, r.repo);
+            });
             $.each(repos, function(index, r) {
                 add_repo_section(r.owner, r.repo);
             });
         }
     });
+}
+
+function add_repo_stubs(owner, repo) {
+    var id = 'repo_section_' + owner + '_' + repo;
+    var todo_id = 'todo_repo_' + owner + '_' + repo;
+
+    $('#repo_section_container').append(
+        $('<div/>', { id : id }));
+    $('#todo_section_container').append(
+        $('<div/>', { id : todo_id }));
 }
 
 function add_repo_section(owner, repo) {
@@ -174,13 +188,20 @@ function add_repo_section(owner, repo) {
 function add_repo_section_w_info(info) {
     augment_repo_info(info);
 
-    $(template_repo_section(info)).appendTo('#repo_section_container');
-    $(template_repo_body(info)).appendTo(select_id(info.id).find('.body_container'));
-    select_id(info.id).find('.timeago').timeago();
+    select_id(info.id).replaceWith( $(template_repo_section(info)) );
+    select_id(info.todo_id).replaceWith( $(template_todo_section(info)) );
+    update_repo_w_info(info);
+}
 
-    $(template_todo_section(info)).appendTo('#todo_section_container');
-    $(template_todo_body(info)).appendTo(select_id(info.todo_id).find('.body_container'));
-    select_id(info.todo_id).find('.timeago').timeago();
+function update_repo_w_info(info) {
+    var s;
+    s = select_id(info.id).find('.body_container');
+    s.empty().append( $(template_repo_body(info)) );
+    s.find('.timeago').timeago();
+
+    s = select_id(info.todo_id).find('.body_container');
+    s.empty().append( $(template_todo_body(info)) );
+    s.find('.timeago').timeago();
 
     register_repo_commit_list(
         info.owner, info.repo,
@@ -225,4 +246,31 @@ function get_message_lines(message) {
         lines[i] = Handlebars.escapeExpression(lines[i]) + '<br/>';
     }
     return (lines.join(" "));
+}
+
+function checkx_for_updates() {
+    $.ajax({
+        url : '/ajax/poll/' + manager,
+        dataType : 'json',
+        success : function(data) {
+            var now = (new Date()).toISOString();
+            var s = $('.repo_status_line abbr.timeago');
+            s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
+            $('abbr.timeago').timeago();
+            $.each(data, function(index, entry) {
+                console.log("update " + entry.owner + '/' + entry.repo);
+                update_repo_section(entry.owner, entry.repo);
+            });
+        }
+    });
+}
+
+function update_repo_info(owner, repo) {
+    $.ajax({
+        url : '/ajax/repo/' + owner + '/' + repo,
+        dataType : 'json',
+        success : function(ri) {
+            update_repo_w_info(ri);
+        }
+    });
 }

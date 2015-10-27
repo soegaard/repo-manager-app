@@ -224,7 +224,7 @@
 
     (body
      (div ([class "global_head_buttons"])
-       (button ([type "button"] [onclick "check_for_updates();"]) "Check for updates"))
+       (button ([type "button"] [onclick "checkx_for_updates();"]) "Check for updates"))
      (h1 "Repository recent master commits")
      (div ([id "repo_section_container"]))
      ;; ,@(for/list ([ri ris]) (repo-section ri))
