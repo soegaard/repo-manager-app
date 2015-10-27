@@ -216,13 +216,14 @@ function checkx_for_updates() {
         s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
         $('abbr.timeago').timeago();
         $.each(data, function(index, entry) {
-            update_repo_section(entry.owner, entry.repo);
+            update_repo_info(entry.owner, entry.repo);
         });
     });
 }
 
 function update_repo_info(owner, repo) {
     ajax_repo_info(owner, repo, function(ri) {
+        augment_repo_info(ri);
         update_repo_w_info(ri);
     });
 }
