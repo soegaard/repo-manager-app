@@ -2,6 +2,7 @@
    Data */
 
 var manager = null;
+var manager_repos = null;
 var repo_commits = new Map();    // owner/repo : String => shas : Arrayof String
 var commits_picked = new Map();  // sha : String => boolean
 
@@ -23,12 +24,28 @@ function set_commit_will_pick(sha, will_pick) {
     commits_picked.set(sha, will_pick);
 }
 
+function make_repo_id(owner, repo) {
+    return 'repo_section_' + owner + '_' + repo;
+}
+
+function make_todo_id(owner, repo) {
+    return 'todo_repo_' + owner + '_' + repo;
+}
+
 /* ============================================================
    Ajax */
 
 function ajax_poll(manager, k) {
     $.ajax({
         url : '/ajax/poll/' + manager,
+        dataType : 'json',
+        success : k
+    });
+}
+
+function ajax_poll_repo(owner, repo, k) {
+    $.ajax({
+        url : '/ajax/poll-repo/' + owner + '/' + repo,
         dataType : 'json',
         success : k
     });
@@ -99,7 +116,7 @@ function todo_repo_update(owner, repo) {
         show_bookkeeping = show_bookkeeping || show_commit;
     });
 
-    var todo_id = 'todo_repo_' + owner + '_' + repo;
+    var todo_id = make_todo_id(owner, repo);
     select_id(todo_id).find('.todo_bookkeeping_line').toggle(show_bookkeeping);
     select_id(todo_id).find('.todo_empty').toggle(!show_bookkeeping);
 }
@@ -121,6 +138,7 @@ function initialize_for_manager(m) {
 
     ajax_manager_repos(m, function(repos) {
         // Add stubs sync'ly for ordering, then fill in async'ly
+        manager_repos = repos;
         $.each(repos, function(index, r) {
             add_repo_stubs(r.owner, r.repo);
         });
@@ -131,8 +149,8 @@ function initialize_for_manager(m) {
 }
 
 function add_repo_stubs(owner, repo) {
-    var id = 'repo_section_' + owner + '_' + repo;
-    var todo_id = 'todo_repo_' + owner + '_' + repo;
+    var id = make_repo_id(owner, repo);
+    var todo_id = make_todo_id(owner, repo);
 
     $('#repo_section_container').append(
         $('<div/>', { id : id }));
@@ -170,8 +188,8 @@ function update_repo_w_info(info) {
 }
 
 function augment_repo_info(info) {
-    info.id = 'repo_section_' + info.owner + '_' + info.repo;
-    info.todo_id = 'todo_repo_' + info.owner + '_' + info.repo;
+    info.id = make_repo_id(info.owner, info.repo);
+    info.todo_id = make_todo_id(info.owner, info.repo);
     info.commits_ok = Array.isArray(info.commits);
     info.ncommits = info.commits_ok ? info.commits.length : 0;
     info.error_line = info.commits_ok ? "" : info.commits;
@@ -210,13 +228,16 @@ function get_message_lines(message) {
 }
 
 function checkx_for_updates() {
-    ajax_poll(manager, function(data) {
-        var now = (new Date()).toISOString();
-        var s = $('.repo_status_line abbr.timeago');
-        s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
-        $('abbr.timeago').timeago();
-        $.each(data, function(index, entry) {
-            update_repo_info(entry.owner, entry.repo);
+    var now = (new Date()).toISOString();
+    $.each(manager_repos, function(index, r) {
+        var s = select_id(make_repo_id(r.owner, r.repo));
+        s.find('.repo_status_checking').show();
+        ajax_poll_repo(r.owner, r.repo, function(updated) {
+            if (updated) {
+                update_repo_info(r.owner, r.repo);
+            } else {
+                update_repo_timestamp(r.owner, r.repo, now);
+            }
         });
     });
 }
@@ -225,7 +246,16 @@ function update_repo_info(owner, repo) {
     ajax_repo_info(owner, repo, function(ri) {
         augment_repo_info(ri);
         update_repo_w_info(ri);
+        select_id(ri.id).find('.repo_status_checking').hide();
     });
+}
+
+function update_repo_timestamp(owner, repo, now) {
+    var s = select_id(make_repo_id(owner, repo));
+    var st = s.find('.repo_status_line abbr.timeago');
+    st.replaceWith($('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>'));
+    s.find('.timeago').timeago();
+    s.find('.repo_status_checking').hide();
 }
 
 /* ============================================================
@@ -243,9 +273,9 @@ function check_for_updates() {
         s = $('abbr.timeago');
         s.timeago();
         $.each(data, function(index, entry) {
-            update_body_container('repo_section_' + entry.owner + '_' + entry.repo,
+            update_body_container(make_repo_id(entry.owner, entry.repo),
                                   '/ajax/repo-html/' + entry.owner + '/' + entry.repo);
-            update_body_container('todo_repo_' + entry.owner + '_' + entry.repo,
+            update_body_container(make_todo_id(entry.owner, entry.repo),
                                   '/ajax/todo-html/' + entry.owner + '/' + entry.repo);
         });
     });

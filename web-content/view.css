@@ -31,6 +31,10 @@ td {
   color: gray;
 }
 
+.repo_status_checking {
+  display: none;
+}
+
 .repo_error_line {
   font-family: serif;
   font-style:italic;

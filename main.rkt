@@ -68,6 +68,10 @@
     (lambda (req owner repo)
       (unless (ok-repo? owner repo) (error 'page "bad repo: ~e, ~e" owner repo))
       (json-response (get-repo-info owner repo)))]
+   [("ajax" "poll-repo" (string-arg) (string-arg))
+    (lambda (req owner repo)
+      (unless (ok-repo? owner repo) (error 'age "bad repo: ~e, ~e" owner repo))
+      (poll-repo owner repo))]
    ))
 
 (define (json-response jsexpr #:headers [headers null])
@@ -111,6 +115,16 @@
         (and (not (equal? new-state old-state))
              (hash 'owner owner 'repo repo)))))
   (json-response updated))
+
+(define (poll-repo owner repo)
+  (define (get-state)
+    (list (db:get-branch-sha owner repo "master")
+          (db:get-branch-sha owner repo "release")))
+  (define old-state (get-state))
+  (db:recache-ref/ts owner repo "heads/master")
+  (db:recache-ref/ts owner repo "heads/release")
+  (define new-state (get-state))
+  (json-response (not (equal? new-state old-state))))
 
 ;; ----------------------------------------
 
@@ -156,7 +170,9 @@
                   "{{ncommits}} commits since branch day; "
                   "last checked for updates "
                   (abbr ([class "timeago"] [title "{{timestamp}}"])
-                        "at {{timestamp}}"))
+                        "at {{timestamp}}")
+                  (span ([class "repo_status_checking"])
+                        "; checking for updates now"))
              (table ([class "repo_section_body"])
                "{{#each commits}}"
                (tr ([id "{{id}}"]
