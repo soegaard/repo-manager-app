@@ -32,18 +32,14 @@ function make_todo_id(owner, repo) {
     return 'todo_repo_' + owner + '_' + repo;
 }
 
+function ok_name(s) {
+    return (typeof s === 'string') && /^[-_a-ZA-Z]*$/.test(s);
+}
+
 /* ============================================================
    Ajax */
 
-function ajax_poll(manager, k) {
-    $.ajax({
-        url : '/ajax/poll/' + manager,
-        dataType : 'json',
-        success : k
-    });
-}
-
-function ajax_poll_repo(owner, repo, k) {
+function data_poll_repo(owner, repo, k) {
     $.ajax({
         url : '/ajax/poll-repo/' + owner + '/' + repo,
         dataType : 'json',
@@ -51,7 +47,7 @@ function ajax_poll_repo(owner, repo, k) {
     });
 }
 
-function ajax_manager_repos(manager, k) {
+function data_manager_repos(manager, k) {
     $.ajax({
         url : '/ajax/manager/' + manager,
         dataType : 'json',
@@ -59,7 +55,7 @@ function ajax_manager_repos(manager, k) {
     });
 }
 
-function ajax_repo_info(owner, repo, k) {
+function data_repo_info(owner, repo, k) {
     $.ajax({
         url : '/ajax/repo/' + owner + '/' + repo,
         dataType: 'json',
@@ -136,7 +132,7 @@ function initialize_for_manager(m) {
     template_todo_section = Handlebars.compile($('#template_todo_section').html());
     template_todo_body = Handlebars.compile($('#template_todo_body').html());
 
-    ajax_manager_repos(m, function(repos) {
+    data_manager_repos(m, function(repos) {
         // Add stubs sync'ly for ordering, then fill in async'ly
         manager_repos = repos;
         $.each(repos, function(index, r) {
@@ -159,7 +155,7 @@ function add_repo_stubs(owner, repo) {
 }
 
 function add_repo_section(owner, repo) {
-    ajax_repo_info(owner, repo, function(ri) {
+    data_repo_info(owner, repo, function(ri) {
         add_repo_section_w_info(ri);
     });
 }
@@ -232,7 +228,7 @@ function checkx_for_updates() {
     $.each(manager_repos, function(index, r) {
         var s = select_id(make_repo_id(r.owner, r.repo));
         s.find('.repo_status_checking').show();
-        ajax_poll_repo(r.owner, r.repo, function(updated) {
+        data_poll_repo(r.owner, r.repo, function(updated) {
             if (updated) {
                 update_repo_info(r.owner, r.repo);
             } else {
@@ -243,7 +239,7 @@ function checkx_for_updates() {
 }
 
 function update_repo_info(owner, repo) {
-    ajax_repo_info(owner, repo, function(ri) {
+    data_repo_info(owner, repo, function(ri) {
         augment_repo_info(ri);
         update_repo_w_info(ri);
         select_id(ri.id).find('.repo_status_checking').hide();
@@ -266,7 +262,7 @@ function register_repo_commits(owner, repo, commits) {
 }
 
 function check_for_updates() {
-    ajax_poll(manager, function(data) {
+    data_poll(manager, function(data) {
         var now = (new Date()).toISOString();
         var s = $('.repo_status_line abbr.timeago');
         s.replaceWith('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>');
@@ -303,5 +299,13 @@ function final_setup() {
             elem.checked = false; 
         });
         $('abbr.timeago').timeago();
+    });
+}
+
+function data_poll(manager, k) {
+    $.ajax({
+        url : '/ajax/poll/' + manager,
+        dataType : 'json',
+        success : k
     });
 }
