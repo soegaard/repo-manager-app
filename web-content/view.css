@@ -70,6 +70,16 @@ td.commit_index {
   padding: 0ex 1ex;
 }
 
+.commit_msg_line1 {
+  max-width: 60em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.commit_msg_line1:hover {
+  text-decoration: underline;
+}
+
 .commit_picked {
   color: gray;
 }

@@ -179,12 +179,17 @@
                     [class "commit_block {{class_picked}} {{class_attn}}"])
                  (td ([class "commit_index"]) "{{index}}")
                  (td
-                  (div ([class "commit_line"]
-                        [onclick "toggle_commit_full_message('{{id}}');"])
-                    (span ([class "commit_elem commit_sha"]) "{{short_sha}}")
-                    (span ([class "commit_elem commit_date"]) "{{author.date}}")
-                    (span ([class "commit_elem commit_author"]) "{{author.name}}")
-                    (span ([class "commit_elem commit_msg_line1"]) "{{message_line1}}"))
+                  (div ([class "commit_line"])
+                    (span ([class "commit_elem commit_sha"])
+                          (a ([href "https://github.com/{{../owner}}/{{../repo}}/commit/{{sha}}"])
+                             "{{short_sha}}"))
+                    (abbr ([class "commit_elem commit_date"]
+                           [title "{{info.author.date}}"])
+                          "{{nice_date}}")
+                    (span ([class "commit_elem commit_author"]) "{{info.author.name}}")
+                    (span ([class "commit_elem commit_msg_line1"]
+                           [onclick "toggle_commit_full_message('{{id}}');"])
+                          "{{message_line1}}"))
                   (div ([class "commit_full_msg"])
                        "{{{message_lines}}}"))
                  (td ([class "commit_action"])

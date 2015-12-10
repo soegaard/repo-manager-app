@@ -33,7 +33,7 @@ function make_todo_id(owner, repo) {
 }
 
 function ok_name(s) {
-    return (typeof s === 'string') && /^[-_a-ZA-Z]*$/.test(s);
+    return (typeof s === 'string') && /^[_a-zA-Z\-]*$/.test(s);
 }
 
 /* ============================================================
@@ -247,6 +247,7 @@ function augment_commit_info(index, info) {
     info.message_line1 = get_message_line1(info.info.message);
     info.message_lines = get_message_lines(info.info.message);
     info.is_picked = (info.status_actual === "picked");
+    info.nice_date = info.info.author.date.substring(0, 4 + 1 + 2 + 1 + 2);
 }
 
 function get_message_line1(message) {
