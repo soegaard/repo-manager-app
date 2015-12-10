@@ -37,19 +37,57 @@ function ok_name(s) {
 }
 
 /* ============================================================
+   Data */
+
+/*
+  Filesystem:
+  /data/manager_{{manager}} => [{owner, repo}, ...]
+  /data/bday_{{owner}}_{{repo}} => String (branch day sha)
+  /data/commits_{{owner}}_{{repo}} => [CommitInfo, ...] (MAYBE)
+*/
+
+/*
+  Local Storage (configuration):
+  "github_auth" => OAuth token
+
+  Local Storage (cache):
+  -- Data other than plain strings is JSON-encoded.
+  "ref_{{owner}}_{{repo}}_{{ref}}" => RefInfo+{ts : TIME}
+  "commit_{{sha}}" => CommitInfo
+*/
+
+/*
+  data_manager_repos(manager, k) => (k repos)
+  Manager responsibilities change rarely; just store in files.
+  GET /data/manager_{{manager}} => [{owner : owner, repo : repo}, ...]
+  
+  data_poll_repo(owner, repo, k) uses data_repo_ref_gh(owner, repo, ref, k)
+
+  data_repo_ref_gh(owner, repo, ref, k) hits GitHub, caches locally
+
+  data_repo_ref(owner, repo, ref, k) uses localStorage cache
+  localStorage.get("ref:{{owner}}/{{repo}}/{{ref}}") =>
+    { sha : String, ts : String }
+
+  data_repo_info(owner, repo, k) 
+    uses data_repo_ref to get refs,
+    uses data_repo_chain(owner, repo, commit, k) to get chains
+ */
+
+/* ============================================================
    Ajax */
 
-function data_poll_repo(owner, repo, k) {
+function data_manager_repos(manager, k) {
     $.ajax({
-        url : '/ajax/poll-repo/' + owner + '/' + repo,
+        url : '/ajax/manager/' + manager,
         dataType : 'json',
         success : k
     });
 }
 
-function data_manager_repos(manager, k) {
+function data_poll_repo(owner, repo, k) {
     $.ajax({
-        url : '/ajax/manager/' + manager,
+        url : '/ajax/poll-repo/' + owner + '/' + repo,
         dataType : 'json',
         success : k
     });
