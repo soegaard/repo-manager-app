@@ -110,7 +110,6 @@ function initialize_for_manager(m) {
     template_todo_body = Handlebars.compile($('#template_todo_body').html());
 
     data_manager_repos(m, function(repos) {
-        console.log("Repos:", repos);
         // Add stubs sync'ly for ordering, then fill in async'ly
         manager_repos = repos;
         $.each(repos, function(index, r) {

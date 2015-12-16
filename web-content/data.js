@@ -164,9 +164,15 @@ function make_commits_map(commits) {
 function add_release_map(info) {
     var release_map = new Map();
     var sha = info.release_sha;
+    var m;
     while (sha && sha != info.branch_day_sha) {
-        release_map.set(sha, true);
+        release_map.set(sha, "shared");
         var ci = info.commits_map.get(sha);
+        var rx = /\(cherry picked from commit ([0-9a-z]*)\)/g;
+        while (m = rx.exec(ci.message)) {
+            var picked_sha = m[1];
+            release_map.set(picked_sha, "picked");
+        }
         if (ci.parents.length == 1) {
             sha = ci.parents[0].sha;
         } else {
@@ -181,27 +187,26 @@ function add_master_chain(info) {
     /* sets info.{release_map, master_chain, error_line} */
     var chain = [];
     var sha = info.master_sha;
-    var index = 1;
     while (sha && sha != info.branch_day_sha) {
         var ci = info.commits_map.get(sha);
-        augment_commit_info(index, ci, info);
         chain.push(ci);
         if (ci.parents.length == 1) {
             sha = ci.parents[0].sha;
-            index++;
         } else {
             info.error_line = "Merge node in master branch at commit " + sha;
             info.master_chain = [];
             return;
         }
     }
+    chain = chain.reverse();
+    $.each(chain, function(index, ci) { augment_commit_info(index, ci, info); });
     info.master_chain = chain;
 }
 
 function augment_commit_info(index, info, repo_info) {
     info.id = 'commit_' + info.sha;
-    info.status_actual = repo_info.release_map.get(info.sha) ? "picked" : "no";
-    info.status_recommend = (/[Mm]erge|[Rr]elease/.test(info.message)) ? "attn" : "no";
+    info.status_actual = repo_info.release_map.has(info.sha) ? "picked" : "no";
+    info.status_recommend = commit_needs_attention(info) ? "attn" : "no";
     info.class_picked =
         (info.status_actual === "picked") ? "commit_picked" : "commit_unpicked";
     info.class_attn = 
@@ -214,8 +219,13 @@ function augment_commit_info(index, info, repo_info) {
     info.nice_date = info.author.date.substring(0, 4 + 1 + 2 + 1 + 2);
 }
 
+function commit_needs_attention(ci) {
+    return /merge|release/i.test(ci.message);
+}
+
 function get_message_line1(message) {
-    return message.split("\n")[0];
+    var lines = message.split("\n");
+    return lines[0];
 }
 
 function get_message_lines(message) {
