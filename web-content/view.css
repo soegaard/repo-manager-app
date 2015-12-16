@@ -57,8 +57,8 @@ td.commit_index {
   font-family: monospace;
 }
 .commit_block:hover {
-  /* background-color: lightgray; */
-  outline: 1pt dotted gray;
+  /* outline: 1pt dotted gray; */
+  background-color: lightyellow;
 }
 
 .commit_line {
@@ -78,6 +78,7 @@ td.commit_index {
 }
 .commit_msg_line1:hover {
   text-decoration: underline;
+  cursor: pointer;
 }
 
 .commit_picked {

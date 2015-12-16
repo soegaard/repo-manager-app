@@ -2,7 +2,7 @@
    Data */
 
 var manager = null;
-var manager_repos = null;
+var manager_repos = null;        // [{owner, repo}, ...]
 var repo_commits = new Map();    // owner/repo : String => shas : Arrayof String
 var commits_picked = new Map();  // sha : String => boolean
 
@@ -24,85 +24,8 @@ function set_commit_will_pick(sha, will_pick) {
     commits_picked.set(sha, will_pick);
 }
 
-function make_repo_id(owner, repo) {
-    return 'repo_section_' + owner + '_' + repo;
-}
-
-function make_todo_id(owner, repo) {
-    return 'todo_repo_' + owner + '_' + repo;
-}
-
-function ok_name(s) {
-    return (typeof s === 'string') && /^[_a-zA-Z\-]*$/.test(s);
-}
-
 /* ============================================================
-   Data */
-
-/*
-  Filesystem:
-  /data/manager_{{manager}} => [{owner, repo}, ...]
-  /data/bday_{{owner}}_{{repo}} => String (branch day sha)
-  /data/commits_{{owner}}_{{repo}} => [CommitInfo, ...] (MAYBE)
-*/
-
-/*
-  Local Storage (configuration):
-  "github_auth" => OAuth token
-
-  Local Storage (cache):
-  -- Data other than plain strings is JSON-encoded.
-  "ref_{{owner}}_{{repo}}_{{ref}}" => RefInfo+{ts : TIME}
-  "commit_{{sha}}" => CommitInfo
-*/
-
-/*
-  data_manager_repos(manager, k) => (k repos)
-  Manager responsibilities change rarely; just store in files.
-  GET /data/manager_{{manager}} => [{owner : owner, repo : repo}, ...]
-  
-  data_poll_repo(owner, repo, k) uses data_repo_ref_gh(owner, repo, ref, k)
-
-  data_repo_ref_gh(owner, repo, ref, k) hits GitHub, caches locally
-
-  data_repo_ref(owner, repo, ref, k) uses localStorage cache
-  localStorage.get("ref:{{owner}}/{{repo}}/{{ref}}") =>
-    { sha : String, ts : String }
-
-  data_repo_info(owner, repo, k) 
-    uses data_repo_ref to get refs,
-    uses data_repo_chain(owner, repo, commit, k) to get chains
- */
-
-/* ============================================================
-   Ajax */
-
-function data_manager_repos(manager, k) {
-    $.ajax({
-        url : '/ajax/manager/' + manager,
-        dataType : 'json',
-        success : k
-    });
-}
-
-function data_poll_repo(owner, repo, k) {
-    $.ajax({
-        url : '/ajax/poll-repo/' + owner + '/' + repo,
-        dataType : 'json',
-        success : k
-    });
-}
-
-function data_repo_info(owner, repo, k) {
-    $.ajax({
-        url : '/ajax/repo/' + owner + '/' + repo,
-        dataType: 'json',
-        success : k
-    });
-}
-
-/* ============================================================
-   General helpers */
+   DOM Utilities */
 
 function select_id(id) {
     return $('#' + id);
@@ -163,6 +86,22 @@ var template_repo_body = null;
 var template_todo_section = null;
 var template_todo_body = null;
 
+function initialize_page() {
+    var q = parse_url_query();
+    var m = q.manager || "";
+    initialize_for_manager(m);
+}
+
+function parse_url_query() {
+    var dict = {};
+    var q = (window.location.search || "?").substring(1);
+    $.each(q.split(/[?;]/), function (i, assign) {
+        assign = assign.split(/[=]/, 2);
+        dict[assign[0]] = assign[1] || true;
+    });
+    return dict;
+}
+
 function initialize_for_manager(m) {
     manager = m;
     template_repo_section = Handlebars.compile($('#template_repo_section').html());
@@ -171,6 +110,7 @@ function initialize_for_manager(m) {
     template_todo_body = Handlebars.compile($('#template_todo_body').html());
 
     data_manager_repos(m, function(repos) {
+        console.log("Repos:", repos);
         // Add stubs sync'ly for ordering, then fill in async'ly
         manager_repos = repos;
         $.each(repos, function(index, r) {
@@ -219,47 +159,6 @@ function update_repo_w_info(info) {
     register_repo_commit_list(
         info.owner, info.repo,
         $.map(info.commits, function(ci) { return ci.sha; }));
-}
-
-function augment_repo_info(info) {
-    info.id = make_repo_id(info.owner, info.repo);
-    info.todo_id = make_todo_id(info.owner, info.repo);
-    info.commits_ok = Array.isArray(info.commits);
-    info.ncommits = info.commits_ok ? info.commits.length : 0;
-    info.error_line = info.commits_ok ? "" : info.commits;
-    info.timestamp = (new Date(info.last_polled * 1000)).toISOString();
-    if (info.commits_ok) {
-        $.each(info.commits, function(index, ci) { augment_commit_info(index, ci); });
-    } else {
-        info.commits = [];
-    }
-}
-
-function augment_commit_info(index, info) {
-    info.id = 'commit_' + info.info.sha;
-    info.class_picked =
-        (info.status_actual === "picked") ? "commit_picked" : "commit_unpicked";
-    info.class_attn = 
-        (info.status_recommend === "attn") ? "commit_attn" : "commit_no_attn";
-    info.index = index + 1;
-    info.sha = info.info.sha;
-    info.short_sha = info.sha.substring(0,8);
-    info.message_line1 = get_message_line1(info.info.message);
-    info.message_lines = get_message_lines(info.info.message);
-    info.is_picked = (info.status_actual === "picked");
-    info.nice_date = info.info.author.date.substring(0, 4 + 1 + 2 + 1 + 2);
-}
-
-function get_message_line1(message) {
-    return message.split("\n")[0];
-}
-
-function get_message_lines(message) {
-    var lines = message.split("\n");
-    for (var i = 0; i < lines.length; ++i) {
-        lines[i] = Handlebars.escapeExpression(lines[i]) + '<br/>';
-    }
-    return (lines.join(" "));
 }
 
 function checkx_for_updates() {

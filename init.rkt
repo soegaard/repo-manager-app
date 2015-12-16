@@ -1,57 +1,64 @@
 #lang racket/base
 (require (rename-in racket/match [match-define defmatch])
          racket/cmdline
+         racket/file
          racket/string
+         racket/runtime-path
+         json
          "private/net.rkt"
-         "private/catalog.rkt"
-         "private/db.rkt")
+         "private/catalog.rkt")
+(provide (all-defined-out))
 
-(define (init-branch-day [commit "master"])
-  (define catalog (get-catalog (src-catalog-url commit)))
-  (for ([(o/r sha) (in-hash (get-checksum-table catalog))])
-    ;; (eprintf "set ~a/~a to ~a\n" (car o/r) (cadr o/r) sha)
-    (db:set-branch-day-sha (car o/r) (cadr o/r) sha)))
+(define-runtime-path config-file "web-content/data/base.json")
+(define-runtime-path repos-file "web-src/repos.rktd")
+(define-runtime-path managers-file "web-src/managers.rktd")
 
-;; ============================================================
+;; release-info : ... -> {branch_day : BranchDayCommits, managers : Managers}
+(define (release-info bd-commit)
+  (hash 'branch_day (branch-day-commits bd-commit)
+        'managers (managers-info)))
 
-;; file contains: ((manager owner/repo ...) ...)
-(define (init-managers managers-file)
-  (define all-repos (call-with-input-file* "repos.rktd" read))
-  (define assigned-repos (make-hash))
+;; branch-day-commits : -> {owner/repo : sha, ...}
+(define (branch-day-commits [bd-commit "master"])
+  (define catalog (get-catalog (src-catalog-url bd-commit)))
+  (for/hash ([(o/r sha) (in-hash (get-checksum-table catalog))])
+    (values (string->symbol (format "~a/~a" (car o/r) (cadr o/r))) sha)))
+
+;; managers.rktd: ((manager owner/repo ...) ...)
+;; repos.rktd: (owner/repo ...)
+
+;; managers-info : ... -> {manager : [owner/repo, ...], ...}
+(define (managers-info)
+  (define all-repos (call-with-input-file* repos-file read))
   (define managers (call-with-input-file* managers-file read))
-  (for ([entry managers])
-    (define manager (symbol->string (car entry)))
-    (define repos
-      (for/list ([o/r (cdr entry)])
-        (unless (member o/r all-repos)
-          (eprintf "** bad repo: ~s\n" o/r))
-        (hash-set! assigned-repos o/r manager)
-        (string-split (symbol->string o/r) "/")))
-    ;; (eprintf "adding ~s managing ~s\n" manager repos)
-    (db:create-manager manager repos))
+  (define assigned-repos (make-hash))
+  (define managers-h
+    (for/hash ([entry managers])
+      (define manager (car entry))
+      (define repos
+        (for/list ([o/r (cdr entry)])
+          (unless (member o/r all-repos)
+            (eprintf "** bad repo: ~s\n" o/r))
+          (hash-set! assigned-repos o/r manager)
+          (symbol->string o/r)))
+      (values manager repos)))
   (for ([repo all-repos]
         #:when (not (hash-ref assigned-repos repo #f)))
-    (eprintf "** unassigned repo: ~s\n" repo)))
+    (eprintf "** unassigned repo: ~s\n" repo))
+  managers-h)
 
 ;; ============================================================
 
 (module+ main
   (require racket/cmdline)
-
-  (define DB-FILE (the-db-file))
-  (define COMMIT #f)
-  (define MANAGERS-FILE #f)
-
+  (define COMMIT "master")
   (command-line
    #:once-each
-   [("--db-file") db-file "Use/create database at db-file" (set! DB-FILE db-file)]
-   [("--commit") commit "Use release catalog at <commit> for branch-day" (set! COMMIT commit)]
-   [("--managers") managers-file "Use file to initialize managers" (set! MANAGERS-FILE managers-file)]
+   [("--commit") commit "Use release catalog at <commit> for branch-day"
+    (set! COMMIT commit)]
    #:args ()
-   (parameterize ((the-db-file DB-FILE))
-     (when COMMIT
-       (printf "Initializing branch-day table\n")
-       (init-branch-day COMMIT))
-     (when MANAGERS-FILE
-       (printf "Initializing managers table\n")
-       (init-managers MANAGERS-FILE)))))
+   (begin
+     (make-parent-directory* config-file)
+     (call-with-output-file* config-file
+       #:exists 'truncate/replace
+       (lambda (o) (write-json (release-info COMMIT) o))))))
