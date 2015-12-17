@@ -43,7 +43,7 @@
 ;; Get a reference
 (define (github:get-ref owner repo ref)
   (get/github (gh-endpoint "repos" owner repo "git/refs" ref)
-              #:fail (lambda _ "none")))
+              #:fail (lambda _ #f)))
 ;; RefInfo = { ref : String, object : { type : "commit", sha : String, _ }, _ }
 
 (define (ref-sha ri) (hash-ref (hash-ref ri 'object) 'sha))
