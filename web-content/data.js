@@ -48,8 +48,8 @@ RepoCachedInfo = {
 
 /* Filesystem:
 
-  /data/config.json => Config
-  /data/repo_{{owner}}_{{repo}} => RepoInfo
+  data/config.json => Config
+  data/repo_{{owner}}_{{repo}} => RepoInfo
 
 */
 
@@ -92,7 +92,7 @@ var cache = {
 function data_cache_config(k) {
     if (!cache.config) {
         $.ajax({
-            url : '/data/config.json',
+            url : 'data/config.json',
             dataType : 'json',
             success : function(data) {
                 cache.config = data;
@@ -120,7 +120,7 @@ function data_repo_info(owner, repo, k) {
         k(cache.repo_info.get(key));
     } else {
         $.ajax({
-            url : '/data/repo_' + owner + '_' + repo,
+            url : 'data/repo_' + owner + '_' + repo,
             dataType: 'json',
             success : function(data) {
                 merge_local_info(repo_key(owner, repo), data, true);
