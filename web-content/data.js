@@ -94,6 +94,7 @@ function data_cache_config(k) {
         $.ajax({
             url : 'data/config.json',
             dataType : 'json',
+            cache : false,
             success : function(data) {
                 cache.config = data;
                 k(data);
@@ -122,6 +123,7 @@ function data_repo_info(owner, repo, k) {
         $.ajax({
             url : 'data/repo_' + owner + '_' + repo,
             dataType: 'json',
+            cache : false,
             success : function(data) {
                 merge_local_info(repo_key(owner, repo), data, true);
                 augment_repo_info(data);
@@ -150,41 +152,53 @@ function merge_local_info(key, info, loud) {
 function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
     augment_repo_info1(ri);
+    console.log("github: fetching refs: ", repo_key(owner, repo));
     $.ajax({
         url: 'https://api.github.com/repos/' + owner + '/' + repo + '/git/refs/heads',
-        success: function(data) {
-            console.log("github: fetching refs: ", repo_key(owner, repo));
-            // data : [{ref:String, object:{type: ("commit"|?), sha: String}}, ...]
-            var timestamp = Date.now();
-            var master_sha = ri.master_sha, release_sha = ri.release_sha;
-            var heads_to_update = [];
-            $.each(data, function(index, refinfo) {
-                if (refinfo.ref == 'refs/heads/master') {
-                    if (refinfo.object.sha != master_sha) {
-                        master_sha = refinfo.object.sha;
-                        heads_to_update.push(master_sha);
-                    }
-                } else if (refinfo.ref == 'refs/heads/release') {
-                    if (refinfo.object.sha != release_sha) {
-                        release_sha = refinfo.object.sha;
-                        heads_to_update.push(release_sha);
-                    }
-                }
-            });
-            gh_get_commits(ri, heads_to_update, function(commits_map) {
-                var commits = [];
-                commits_map.forEach(function(ci, sha) { commits.push(ci); });
-                localStorage.setItem('repo/' + repo_key(owner, repo), JSON.stringify({
-                    timestamp: timestamp,
-                    master_sha: master_sha,
-                    release_sha: release_sha,
-                    commits: commits
-                }));
-                merge_local_info(repo_key(owner, repo), ri, false);
-                augment_repo_info(ri);
-                k();
-            });
+        dataType: 'json',
+        headers : {
+            "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
+        },
+        success: function(data, status, jqxhr) {
+            if (status == "notmodified") {
+                return;
+            } else {
+                gh_update_repo(ri, data, k);
+            }
         }});
+}
+
+function gh_update_repo(ri, data, k) {
+    // data : [{ref:String, object:{type: ("commit"|?), sha: String}}, ...]
+    var timestamp = Date.now();
+    var master_sha = ri.master_sha, release_sha = ri.release_sha;
+    var heads_to_update = [];
+    $.each(data, function(index, refinfo) {
+        if (refinfo.ref == 'refs/heads/master') {
+            if (refinfo.object.sha != master_sha) {
+                master_sha = refinfo.object.sha;
+                heads_to_update.push(master_sha);
+            }
+        } else if (refinfo.ref == 'refs/heads/release') {
+            if (refinfo.object.sha != release_sha) {
+                release_sha = refinfo.object.sha;
+                heads_to_update.push(release_sha);
+            }
+        }
+    });
+    gh_get_commits(ri, heads_to_update, function(commits_map) {
+        var commits = [];
+        commits_map.forEach(function(ci, sha) { commits.push(ci); });
+        localStorage.setItem('repo/' + repo_key(ri.owner, ri.repo), JSON.stringify({
+            timestamp: timestamp,
+            master_sha: master_sha,
+            release_sha: release_sha,
+            commits: commits
+        }));
+        merge_local_info(repo_key(ri.owner, ri.repo), ri, false);
+        augment_repo_info(ri);
+        k();
+    });
 }
 
 function gh_get_commits(ri, head_shas, k) {
@@ -206,6 +220,7 @@ function gh_get_commits1(ri, head_sha, new_commits, k) {
     $.ajax({
         url: 'https://api.github.com/repos/' +
             ri.owner + '/' + ri.repo + '/commits?sha=' + head_sha,
+        dataType: 'json',
         success: function(data) {
             console.log("github: fetching commits: ", repo_key(ri.owner, ri.repo), head_sha);
             data = $.map(data, function(ci) { return gh_trim_commit_info(ci); });
