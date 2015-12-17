@@ -121,6 +121,8 @@
 
  (body
   (div ([class "global_head_buttons"])
+       (select ([id "navigation"])
+         (option "Select manager or repo"))
        (button ([type "button"]
                 [onclick "check_all_for_updates();"])
          "Check for updates")

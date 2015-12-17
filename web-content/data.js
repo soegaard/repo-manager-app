@@ -63,7 +63,18 @@ RepoCachedInfo = {
    Utilities */
 
 function ok_name(s) {
-    return (typeof s === 'string') && /^[_a-zA-Z\-]*$/.test(s);
+    return (typeof s === 'string') &&
+        /^[_a-zA-Z0-9\-]+$/.test(s);
+}
+
+function ok_repo(s) {
+    return (typeof s === 'string') &&
+        /^([a-zA-Z0-9_\-]+)[\/]([_a-zA-Z0-9\-]+)$/.test(s);
+}
+
+function parse_repo(s) {
+    var parts = s.split(/[\/]/, 2);
+    return {owner: parts[0], repo: parts[1]};
 }
 
 function repo_key(owner, repo) {
@@ -78,7 +89,7 @@ var cache = {
     repo_info : new Map() // repo_key(owner, repo) => RepoInfo
 };
 
-function data_get_config(k) {
+function data_cache_config(k) {
     if (!cache.config) {
         $.ajax({
             url : '/data/config.json',
@@ -93,14 +104,14 @@ function data_get_config(k) {
     }
 }
 
-function data_manager_repos(manager, k) {
-    data_get_config(function(config) {
-        var repos = config.managers[manager] || [];
-        k($.map(repos, function(repo) {
-            var parts = repo.split(/[\/]/,2);
-            return {owner: parts[0], repo: parts[1]};
-        }));
-    });
+function data_manager_repos(manager) {
+    if (!cache.config) {
+        console.log("error: called data_manager_repos before data_cache_config");
+        return null;
+    } else {
+        var repos = cache.config.managers[manager] || [];
+        return ($.map(repos, function(repo) { return parse_repo(repo); }));
+    }
 }
 
 function data_repo_info(owner, repo, k) {

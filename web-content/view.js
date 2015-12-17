@@ -1,27 +1,28 @@
 /* ============================================================
    Data */
 
-var manager = null;
-var manager_repos = null;        // [{owner, repo}, ...]
-var repo_commits = new Map();    // owner/repo : String => shas : Arrayof String
-var commits_picked = new Map();  // sha : String => boolean
+var view_state = {
+    repos : [],                 // [{owner: String, repo: String}, ...]
+    repo_commits : new Map(),   // owner/repo: String => [sha: String, ...]
+    commits_picked : new Map()  // sha: String => boolean
+};
 
 function register_repo_commit_list(owner, repo, commits) {
     var key = repo_key(owner, repo);
-    repo_commits.set(key, commits);
+    view_state.repo_commits.set(key, commits);
     $.each(commits, function(index, commit) {
-        commits_picked.set(commit, false);
+        view_state.commits_picked.set(commit, false);
     });
     $.ready(function() { todo_repo_update(owner, repo); });
 }
 
 function get_repo_commits(owner, repo) {
     var key = owner + '/' + repo;
-    return repo_commits.get(key) || [];
+    return view_state.repo_commits.get(key) || [];
 }
 
 function set_commit_will_pick(sha, will_pick) {
-    commits_picked.set(sha, will_pick);
+    view_state.commits_picked.set(sha, will_pick);
 }
 
 /* ============================================================
@@ -68,7 +69,7 @@ function toggle_todo_body(id) {
 function todo_repo_update(owner, repo) {
     var show_bookkeeping = false;
     $.each(get_repo_commits(owner, repo), function(index, sha) {
-        var show_commit = commits_picked.get(sha) || false;
+        var show_commit = view_state.commits_picked.get(sha) || false;
         select_id('todo_commit_' + sha).toggle(show_commit);
         show_bookkeeping = show_bookkeeping || show_commit;
     });
@@ -87,15 +88,42 @@ var template_todo_section = null;
 var template_todo_body = null;
 
 function initialize_page() {
-    var q = parse_url_query();
-    var m = q.manager || "";
-    initialize_for_manager(m);
+    template_repo_section = Handlebars.compile($('#template_repo_section').html());
+    template_repo_body = Handlebars.compile($('#template_repo_body').html());
+    template_todo_section = Handlebars.compile($('#template_todo_section').html());
+    template_todo_body = Handlebars.compile($('#template_todo_body').html());
+
+    data_cache_config(function() {
+        var select = select_id('navigation');
+        $.each(Object.keys(cache.config.managers).sort(), function(index, entry) {
+            select.append($('<option />', { 
+                html: "manager: " + entry,
+                value: "manager=" + entry }));
+        });
+        $.each(Object.keys(cache.config.branch_day).sort(), function(index, entry) {
+            select.append($('<option />', {
+                html: "repo: " + entry,
+                value: "repo=" + entry }));
+        });
+        select.change(function() {
+            var s = select[0];
+            var q = s.options[s.selectedIndex].value;
+            window.location.search = '?' + q;
+        });
+
+        var q = parse_url_query();
+        if (ok_repo(q.repo)) {
+            initialize_for_repo(q.repo);
+        } else if (ok_name(q.manager)) {
+            initialize_for_manager(q.manager);
+        }
+    });
 }
 
 function parse_url_query() {
     var dict = {};
     var q = (window.location.search || "?").substring(1);
-    $.each(q.split(/[?;]/), function (i, assign) {
+    $.each(q.split(/[&;]/), function (i, assign) {
         assign = assign.split(/[=]/, 2);
         dict[assign[0]] = assign[1] || true;
     });
@@ -103,21 +131,21 @@ function parse_url_query() {
 }
 
 function initialize_for_manager(m) {
-    manager = m;
-    template_repo_section = Handlebars.compile($('#template_repo_section').html());
-    template_repo_body = Handlebars.compile($('#template_repo_body').html());
-    template_todo_section = Handlebars.compile($('#template_todo_section').html());
-    template_todo_body = Handlebars.compile($('#template_todo_body').html());
+    initialize_w_repos(data_manager_repos(m));
+}
 
-    data_manager_repos(m, function(repos) {
-        // Add stubs sync'ly for ordering, then fill in async'ly
-        manager_repos = repos;
-        $.each(repos, function(index, r) {
-            add_repo_stubs(r.owner, r.repo);
-        });
-        $.each(repos, function(index, r) {
-            add_repo_section(r.owner, r.repo);
-        });
+function initialize_for_repo(repo) {
+    initialize_w_repos([parse_repo(repo)]);
+}
+
+function initialize_w_repos(repos) {
+    // Add stubs sync'ly for ordering, then fill in async'ly
+    view_state.repos = repos;
+    $.each(repos, function(index, r) {
+        add_repo_stubs(r.owner, r.repo);
+    });
+    $.each(repos, function(index, r) {
+        add_repo_section(r.owner, r.repo);
     });
 }
 
@@ -161,7 +189,7 @@ function update_repo_w_info(info) {
 }
 
 function check_all_for_updates() {
-    $.each(manager_repos, function(index, r) {
+    $.each(view_state.repos, function(index, r) {
         check_repo_for_updates(r.owner, r.repo);
     });
 }
@@ -172,7 +200,6 @@ function check_repo_for_updates(owner, repo) {
     s.find('.repo_status_checking').show();
     gh_poll_repo(owner, repo, function() {
         update_repo_info(owner, repo);
-        // update_repo_timestamp(owner, repo, now);
     });
 }
 
@@ -182,13 +209,3 @@ function update_repo_info(owner, repo) {
         select_id(ri.id).find('.repo_status_checking').hide();
     });
 }
-
-/*
-function update_repo_timestamp(owner, repo, now) {
-    var s = select_id(make_repo_id(owner, repo));
-    var st = s.find('.repo_status_line abbr.timeago');
-    st.replaceWith($('<abbr class="timeago" title="' + now + '">at ' + now + '</abbr>'));
-    s.find('.timeago').timeago();
-    s.find('.repo_status_checking').hide();
-}
-*/
