@@ -7,7 +7,7 @@ var repo_commits = new Map();    // owner/repo : String => shas : Arrayof String
 var commits_picked = new Map();  // sha : String => boolean
 
 function register_repo_commit_list(owner, repo, commits) {
-    var key = owner + '/' + repo;
+    var key = repo_key(owner, repo);
     repo_commits.set(key, commits);
     $.each(commits, function(index, commit) {
         commits_picked.set(commit, false);
@@ -160,29 +160,30 @@ function update_repo_w_info(info) {
         $.map(info.commits, function(ci) { return ci.sha; }));
 }
 
-function checkx_for_updates() {
-    var now = (new Date()).toISOString();
+function check_all_for_updates() {
     $.each(manager_repos, function(index, r) {
-        var s = select_id(make_repo_id(r.owner, r.repo));
-        s.find('.repo_status_checking').show();
-        data_poll_repo(r.owner, r.repo, function(updated) {
-            if (updated) {
-                update_repo_info(r.owner, r.repo);
-            } else {
-                update_repo_timestamp(r.owner, r.repo, now);
-            }
-        });
+        check_repo_for_updates(r.owner, r.repo);
+    });
+}
+
+function check_repo_for_updates(owner, repo) {
+    var now = (new Date()).toISOString();
+    var s = select_id(make_repo_id(owner, repo));
+    s.find('.repo_status_checking').show();
+    gh_poll_repo(owner, repo, function() {
+        update_repo_info(owner, repo);
+        // update_repo_timestamp(owner, repo, now);
     });
 }
 
 function update_repo_info(owner, repo) {
     data_repo_info(owner, repo, function(ri) {
-        augment_repo_info(ri);
         update_repo_w_info(ri);
         select_id(ri.id).find('.repo_status_checking').hide();
     });
 }
 
+/*
 function update_repo_timestamp(owner, repo, now) {
     var s = select_id(make_repo_id(owner, repo));
     var st = s.find('.repo_status_line abbr.timeago');
@@ -190,3 +191,4 @@ function update_repo_timestamp(owner, repo, now) {
     s.find('.timeago').timeago();
     s.find('.repo_status_checking').hide();
 }
+*/

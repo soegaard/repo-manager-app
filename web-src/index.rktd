@@ -22,6 +22,9 @@
            (div ([class "repo_head"])
              (div ([class "repo_head_buttons"])
                   (button ([type "button"]
+                           [onclick "check_repo_for_updates('{{owner}}', '{{repo}}');"])
+                    "Check for updates")
+                  (button ([type "button"]
                            [onclick "repo_expand_all('{{id}}');"])
                     "Expand all")
                   (button ([type "buttom"]
@@ -31,7 +34,7 @@
                        "{{owner}}/{{repo}}")))
            (div ([class "body_container"]))))
 
-       ;; { ower, repo, ncommits, timestamp, master_chain : [ Commit, ... ] }
+       ;; { ower, repo, ncommits, last_polled, master_chain : [ Commit, ... ] }
        ;; Commit = {id, class_picked, class_attn, index, short_sha, sha,
        ;;           author.date, author.name, message_line1, message, is_picked }
        (script ([id "template_repo_body"]
@@ -118,7 +121,12 @@
 
  (body
   (div ([class "global_head_buttons"])
-       (button ([type "button"] [onclick "checkx_for_updates();"]) "Check for updates"))
+       (button ([type "button"]
+                [onclick "check_all_for_updates();"])
+         "Check for updates")
+       (button ([type "button"]
+                [onclick "clear_local_storage();"])
+         "Clear local storage"))
   (h1 "Repository recent master commits")
   (div ([id "repo_section_container"]))
   (h1 "To do summary")
