@@ -2,7 +2,7 @@
 (require xml
          racket/runtime-path)
 
-(define-runtime-path index-src "web-src/index.rktd")
+(define-runtime-path index-src "src/index.rktd")
 (define-runtime-path index-html "web-content/index.html")
 
 (define (make-html in out)

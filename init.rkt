@@ -10,8 +10,8 @@
 (provide (all-defined-out))
 
 (define-runtime-path config-file "web-content/data/base.json")
-(define-runtime-path repos-file "web-src/repos.rktd")
-(define-runtime-path managers-file "web-src/managers.rktd")
+(define-runtime-path repos-file "src/repos.rktd")
+(define-runtime-path managers-file "src/managers.rktd")
 
 ;; release-info : ... -> {branch_day : BranchDayCommits, managers : Managers}
 (define (release-info bd-commit)
