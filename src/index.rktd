@@ -51,7 +51,7 @@
           (table ([class "repo_section_body"])
             "{{#each master_chain}}"
             (tr ([id "{{id}}"]
-                 [class "commit_block {{class_evenodd}} {{class_picked}} {{class_attn}}"])
+                 [class "commit_block {{class_picked}} {{class_attn}}"])
                 (td ([class "commit_index"]) "{{index}}")
                 (td ([class "commit_sha"])
                   (a ([href "https://github.com/{{../owner}}/{{../repo}}/commit/{{sha}}"])

@@ -161,17 +161,22 @@ function gh_poll_repo(owner, repo, k) {
             "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
         },
         success: function(data, status, jqxhr) {
-            console.log("status =", status);
             if (status == "notmodified") {
                 ri.timestamp = now;
                 ri.last_polled = (new Date(now)).toISOString();
-                augment_repo_info1(ri);
                 k();
             } else {
                 gh_update_repo(ri, data, k);
             }
         }});
 }
+
+/* FIXME: need to maintain invariant: 
+   localStorage commits + server commits = all commits up to localStorage timestamp
+   The problem: suppose we check twice, get updates both times.
+   Then all commits = Server + Diff1 + Diff2
+   But we only store Diff2 commits; Diff1 commits get lost. Whoops.
+*/
 
 function gh_update_repo(ri, data, k) {
     // data : [{ref:String, object:{type: ("commit"|?), sha: String}}, ...]
@@ -346,7 +351,6 @@ function augment_commit_info(index, info, repo_info) {
     info.class_attn = 
         (info.status_recommend === "attn") ? "commit_attn" : "commit_no_attn";
     info.index = index + 1;
-    info.class_evenodd = (index % 2 == 0) ? "even" : "odd";
     info.short_sha = info.sha.substring(0,8);
     var lines = info.message.split("\n");
     info.class_one_multi = (lines.length > 1) ? "commit_msg_multi" : "commit_msg_one";

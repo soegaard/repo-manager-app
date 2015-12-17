@@ -95,16 +95,16 @@ table.repo_section_body td {
 .commit_picked {
   color: gray;
 }
-.commit_unpicked.commit_attn.odd {
+.commit_unpicked.commit_attn:nth-child(even) {
   background-color: #fff8f8; /* pink; #FDD */
 }
-.commit_unpicked.commit_attn.even {
+.commit_unpicked.commit_attn:nth-child(odd) {
   background-color: #fff0f0; /* pink; */
 }
-.commit_picked.odd, .commit_no_attn.odd {
+.commit_picked:nth-child(even), .commit_no_attn:nth-child(even) {
   background-color: white;
 }
-.commit_picked.even, .commit_no_attn.even {
+.commit_picked:nth-child(odd), .commit_no_attn:nth-child(odd) {
   background-color: #f8f8ff;
 }
 
