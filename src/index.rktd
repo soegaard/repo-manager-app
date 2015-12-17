@@ -51,22 +51,20 @@
           (table ([class "repo_section_body"])
             "{{#each master_chain}}"
             (tr ([id "{{id}}"]
-                 [class "commit_block {{class_picked}} {{class_attn}}"])
+                 [class "commit_block {{class_evenodd}} {{class_picked}} {{class_attn}}"])
                 (td ([class "commit_index"]) "{{index}}")
-                (td
-                 (div ([class "commit_line"])
-                   (span ([class "commit_elem commit_sha"])
-                     (a ([href "https://github.com/{{../owner}}/{{../repo}}/commit/{{sha}}"])
-                        "{{short_sha}}"))
-                   (abbr ([class "commit_elem commit_date"]
-                          [title "{{author.date}}"])
-                         "{{nice_date}}")
-                   (span ([class "commit_elem commit_author"]) "{{author.name}}")
-                   (span ([class "commit_elem commit_msg_line1"]
-                          [onclick "toggle_commit_full_message('{{id}}');"])
-                         "{{message_line1}}"))
-                 (div ([class "commit_full_msg"])
-                      "{{{message_lines}}}"))
+                (td ([class "commit_sha"])
+                  (a ([href "https://github.com/{{../owner}}/{{../repo}}/commit/{{sha}}"])
+                     "{{short_sha}}"))
+                (td ([class "commit_date"])
+                  (abbr ([title "{{author.date}}"]) "{{nice_date}}"))
+                (td ([class "commit_author"]) "{{author.name}}")
+                (td (div
+                     (div ([class "commit_msg_line1 {{class_one_multi}}"]
+                           [onclick "toggle_commit_full_message('{{id}}');"])
+                       "{{message_line1}}")
+                     (div ([class "commit_rest_msg"])
+                          "{{{message_rest_lines}}}")))
                 (td ([class "commit_action"])
                   "{{#if is_picked}}"
                   (span ([class "commit_action_picked"]) "picked")

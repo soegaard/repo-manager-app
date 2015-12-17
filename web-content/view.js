@@ -40,17 +40,17 @@ function toggle_body(id) {
 }
 
 function repo_expand_all(id) {
-    select_id(id).find('.commit_full_msg').show();
+    select_id(id).find('.commit_rest_msg').show();
 }
 function repo_collapse_all(id) {
-    select_id(id).find('.commit_full_msg').hide();
+    select_id(id).find('.commit_rest_msg').hide();
 }
 
 /* ============================================================
    Commit callbacks */
 
 function toggle_commit_full_message(id) {
-    select_id(id).find('.commit_full_msg').toggle();
+    select_id(id).find('.commit_rest_msg').toggle();
 }
 
 function update_commit_action(id, owner, repo, sha) {

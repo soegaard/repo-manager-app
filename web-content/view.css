@@ -1,10 +1,9 @@
 h1, h2, h3 {
-  color: darkred;
   font-family: sans-serif;
 }
 
 .global_head_buttons {
-    float: right;
+  float: right;
 }
 
 td {
@@ -14,16 +13,18 @@ td {
 /* ============================================================ */
 
 .repo_section {
-  border: 1pt solid darkred;
-  padding: 0pt 6pt;
-  margin: 2pt;
+  border-color: darkgray;
+  border-width: 1pt 0pt;
+  border-style: solid;
+  padding: 6pt 0pt;
+  margin: 4pt;
 }
 
 .repo_head_buttons {
-    float: right;
+  float: right;
 }
 
-.repo_section_body { }
+.repo_section_body {}
 
 .repo_status_line {
   font-family: serif;
@@ -41,19 +42,19 @@ td {
   color: red;
 }
 
-.todo_section { }
+.todo_section {}
 
 /* ============================================================ */
 
-td.commit_index {
-  font-family: sans-serif;
-  font-size: x-small;
-  color: gray;
+table.repo_section_body {
+  width: 100%;
+}
+table.repo_section_body td {
+  vertical-align: top;
+  padding: 4pt;
 }
 
 .commit_block { 
-  padding: 2pt;
-  border: 1pt solid white;
   font-family: monospace;
 }
 .commit_block:hover {
@@ -61,65 +62,50 @@ td.commit_index {
   background-color: lightyellow;
 }
 
-.commit_line {
-  /* Trying to get the height of a picked line same as one with a select list-box */
-  padding: 4pt 0pt;
-}
-.commit_line .commit_elem { 
-  display: inline-block;
-  padding: 0ex 1ex;
+.commit_index, .commit_sha, .commit_date, .commit_author, .commit_action {
+  width: 1%;
+  white-space: nowrap;
 }
 
+.commit_index {
+  font-family: sans-serif;
+  font-size: x-small;
+  color: gray;
+}
+.commit_action {
+  text-align: center;
+}
+.commit_author {
+  min-width: 20ex;
+}
 .commit_msg_line1 {
-  max-width: 60em;
-  white-space: nowrap;
+  /* max-width: 50em; */
+  /* white-space: nowrap; */
   text-overflow: ellipsis;
   overflow: hidden;
 }
-.commit_msg_line1:hover {
+.commit_msg_line1.commit_msg_multi:hover {
   text-decoration: underline;
   cursor: pointer;
+}
+.commit_rest_msg { 
+  display : none
 }
 
 .commit_picked {
   color: gray;
 }
-.commit_unpicked { }
-
-.commit_unpicked.commit_attn {
-  background-color: #FDD; /* pink; */
+.commit_unpicked.commit_attn.odd {
+  background-color: #fff8f8; /* pink; #FDD */
 }
-.commit_no_attn {}
-
-td.commit_action {
-  text-align: center;
-/*
-  vertical-align: top;
-*/
+.commit_unpicked.commit_attn.even {
+  background-color: #fff0f0; /* pink; */
 }
-
-.commit_action_picked {
-/*
-  display: inline-block;
-  padding: 2pt 0pt;
-*/
+.commit_picked.odd, .commit_no_attn.odd {
+  background-color: white;
 }
-
-.commit_sha {}
-
-.commit_date {}
-
-.commit_author {
-  min-width: 20ex;
-}
-
-.commit_msg_line1 {
-  min-width: 60ex;
-}
-
-.commit_full_msg { 
-  padding: 1ex 2ex;
-  display : none
+.commit_picked.even, .commit_no_attn.even {
+  background-color: #f8f8ff;
 }
 
 /* ============================================================ */
@@ -158,5 +144,3 @@ td.commit_action {
   padding: 10em 0pt;
 }
 /* ============================================================ */
-
-.external_link { }

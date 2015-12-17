@@ -151,6 +151,7 @@ function merge_local_info(key, info, loud) {
 
 function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
+    var now = Date.now();
     augment_repo_info1(ri);
     console.log("github: fetching refs: ", repo_key(owner, repo));
     $.ajax({
@@ -160,8 +161,12 @@ function gh_poll_repo(owner, repo, k) {
             "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
         },
         success: function(data, status, jqxhr) {
+            console.log("status =", status);
             if (status == "notmodified") {
-                return;
+                ri.timestamp = now;
+                ri.last_polled = (new Date(now)).toISOString();
+                augment_repo_info1(ri);
+                k();
             } else {
                 gh_update_repo(ri, data, k);
             }
@@ -341,28 +346,20 @@ function augment_commit_info(index, info, repo_info) {
     info.class_attn = 
         (info.status_recommend === "attn") ? "commit_attn" : "commit_no_attn";
     info.index = index + 1;
+    info.class_evenodd = (index % 2 == 0) ? "even" : "odd";
     info.short_sha = info.sha.substring(0,8);
-    info.message_line1 = get_message_line1(info.message);
-    info.message_lines = get_message_lines(info.message);
+    var lines = info.message.split("\n");
+    info.class_one_multi = (lines.length > 1) ? "commit_msg_multi" : "commit_msg_one";
+    info.message_line1 = lines[0];
+    info.message_rest_lines = $.map(lines.slice(1), function (line) {
+        return Handlebars.escapeExpression(line) + '<br/>';
+    }).join(" ");
     info.is_picked = (info.status_actual === "picked");
     info.nice_date = info.author.date.substring(0, 4 + 1 + 2 + 1 + 2);
 }
 
 function commit_needs_attention(ci) {
     return /merge|release/i.test(ci.message);
-}
-
-function get_message_line1(message) {
-    var lines = message.split("\n");
-    return lines[0];
-}
-
-function get_message_lines(message) {
-    var lines = message.split("\n");
-    for (var i = 0; i < lines.length; ++i) {
-        lines[i] = Handlebars.escapeExpression(lines[i]) + '<br/>';
-    }
-    return (lines.join(" "));
 }
 
 function make_repo_id(owner, repo) {
