@@ -8,7 +8,7 @@ Config = {
   branch_day: {owner/repo: sha, ...},
 }
 
-RepoInfo = {
+ServerRepoInfo = {
   owner : String,
   repo : String,
   last_polled : String, -- Date.toISOString()
@@ -17,7 +17,7 @@ RepoInfo = {
   commits : [CommitInfo, ...],  -- unsorted, only from server
 }
 
-AugmentedRepoInfo = RepoInfo + {
+RepoInfo = ServerRepoInfo + {
   timestamp : Integer, -- Date.UTC()
   branch_day_sha : String,
   commits_map : Map[sha => CommitInfo],
@@ -38,7 +38,7 @@ AnnotatedCommitInfo = CommitInfo + {
   status_recommend : String ("attn" | "no")
 }
 
-RepoCachedInfo = {
+LocalRepoInfo = {
   timestamp: Integer, -- Date.UTC()
   master_sha: String / null,
   release_sha: String / null,
@@ -56,7 +56,7 @@ RepoCachedInfo = {
 
 /* Local Storage (Cache) -- Data other than plain strings is JSON-encoded
 
-  "repo/{{owner}}/{{repo}}" => RepoCachedInfo
+  "repo/{{owner}}/{{repo}}" => LocalRepoInfo
 
 */
 
@@ -127,7 +127,7 @@ function data_repo_info(owner, repo, k) {
             cache : false,
             success : function(data) {
                 augment_repo_info(data);
-                merge_local_info(repo_key(owner, repo), data, true);
+                load_local_info(data, true);
                 cache.repo_info.set(key, data);
                 k(data);
             }
@@ -135,21 +135,36 @@ function data_repo_info(owner, repo, k) {
     }
 }
 
-function merge_local_info(key, info, loud) {
+function load_local_info(ri, loud) {
+    var key = repo_key(ri.owner, ri.repo);
     var localri = localStorage.getItem("repo/" + key);
     localri = localri && JSON.parse(localri);
-    if (localri && localri.timestamp > Date.parse(info.last_polled)) {
+    if (localri && localri.timestamp > ri.timestamp) {
         if (loud) console.log("local information found: ", key);
-        info.timestamp = localri.timestamp;
-        info.last_polled = (new Date(localri.timestamp)).toISOString();
-        info.master_sha = localri.master_sha;
-        info.release_sha = localri.release_sha;
+        ri.timestamp = localri.timestamp;
+        ri.master_sha = localri.master_sha;
+        ri.release_sha = localri.release_sha;
+        ri.local_commits = localri.commits;
         $.each(localri.commits, function(index, ci) {
-            info.commits_map.set(ci.sha, ci)
+            ri.commits_map.set(ci.sha, ci)
         });
-        augment_repo_info_update(info);
+        augment_repo_info_update(ri);
     }
 }
+
+function save_local_info(ri) {
+    localStorage.setItem('repo/' + repo_key(ri.owner, ri.repo), JSON.stringify({
+        timestamp: ri.timestamp,
+        master_sha: ri.master_sha,
+        release_sha: ri.release_sha,
+        commits: $.map(ri.local_commits, gh_copy_commit_info)
+    }));
+}
+
+/* GitHub seems to have buggy Last-Modified / If-Modified-Since handling.
+ * I've gotten "notmodified" responses when fetching refs from recently-updated 
+ * repos. So let's try ETags or skip it altogether. 
+ */
 
 function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
@@ -159,12 +174,16 @@ function gh_poll_repo(owner, repo, k) {
         url: 'https://api.github.com/repos/' + owner + '/' + repo + '/git/refs/heads',
         dataType: 'json',
         headers : {
-            "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
+            // "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
         },
+        cache: false,
         success: function(data, status, jqxhr) {
+            console.log("status =", status);
+            console.log("response =", jqxhr.getAllResponseHeaders());
             if (status == "notmodified") {
                 ri.timestamp = now;
                 ri.last_polled = (new Date(now)).toISOString();
+                save_local_info(ri);
                 k();
             } else {
                 gh_update_repo(ri, data, k);
@@ -192,14 +211,12 @@ function gh_update_repo(ri, data, k) {
     });
     var new_map = new Map();
     gh_get_commits(ri, heads_to_update, new_map, 0, function() {
+        ri.timestamp = timestamp;
+        ri.master_sha = master_sha;
+        ri.release_sha = release_sha;
         new_map.forEach(function(ci, sha) { ri.local_commits.push(ci); });
-        localStorage.setItem('repo/' + repo_key(ri.owner, ri.repo), JSON.stringify({
-            timestamp: timestamp,
-            master_sha: master_sha,
-            release_sha: release_sha,
-            commits: $.map(ri.local_commits, gh_trim_commit_info)
-        }));
-        merge_local_info(repo_key(ri.owner, ri.repo), ri, false);
+        save_local_info(ri);
+        augment_repo_info_update(ri);
         k();
     });
 }
@@ -258,6 +275,16 @@ function gh_trim_commit_info(ci) {
     };
 }
 
+function gh_copy_commit_info(ci) {
+    return {
+        sha: ci.sha,
+        author: ci.author,
+        committer: ci.committer,
+        message: ci.message,
+        parents: ci.parents
+    };
+}
+
 function clear_local_storage() {
     localStorage.clear();
 }
@@ -276,6 +303,7 @@ function augment_repo_info(info) {
 }
 
 function augment_repo_info_update(info) {
+    info.last_polled = (new Date(info.timestamp)).toISOString();
     add_release_map(info);
     add_master_chain(info);
     info.commits_ok = (info.error_line == null);
