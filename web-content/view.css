@@ -10,14 +10,21 @@ td {
   padding: 0pt 4pt;
 }
 
+.uninitialized_text {
+  display: none;
+  padding: 32pt;
+  font-weight: bold;
+  font-size: larger;
+}
+
 /* ============================================================ */
 
 .repo_section {
-  border-color: darkgray;
-  border-width: 1pt 0pt;
+  border-color: lightgray;
+  border-width: 1pt 0pt 0pt 0pt;
   border-style: solid;
-  padding: 6pt 0pt;
-  margin: 4pt;
+  padding: 0pt 0pt 8pt 0pt;
+  margin: 6pt 0pt;
 }
 
 .repo_head_buttons {
@@ -108,21 +115,25 @@ table.repo_section_body td {
   background-color: #f8f8ff;
 }
 
+.commit_picked_example {
+  color: gray;
+}
+.commit_attn_example {
+  background-color: #fff8f8;
+}
+
 /* ============================================================ */
 
 .todo_section {
-  /*
-  border: 2pt solid darkred;
-  padding: 0pt 6pt;
-  */
-  padding: 0pt 6pt;
-  margin: 2pt;
+  border-color: lightgray;
+  border-width: 1pt 0pt 0pt 0pt;
+  border-style: solid;
+  padding: 0pt 0pt 4pt 0pt;
+  margin: 4pt 0pt;
+  display: none;
 }
 .todo_body {
   font-family: monospace;
-  /*
-  padding: 0pt 0pt 24pt 0pt;
-  */
 }
 
 .todo_commit_line {
@@ -130,15 +141,7 @@ table.repo_section_body td {
 }
 .todo_commit_sha {}
 
-.todo_bookkeeping_line {
-  display: none;
-}
-
-.todo_empty {
-  /* display: none; */
-  font-family: sans-serif;
-  font-style: italic;
-}
+.todo_bookkeeping_line {}
 
 .endblock {
   padding: 10em 0pt;

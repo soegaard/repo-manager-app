@@ -30,8 +30,7 @@
                   (button ([type "buttom"]
                            [onclick "repo_collapse_all('{{id}}');"])
                           "Collapse all"))
-             (h2 (span (#|[onclick "toggle_body('{{id}}');"]|#)
-                       "{{owner}}/{{repo}}")))
+             (h3 "{{owner}}/{{repo}}"))
            (div ([class "body_container"]))))
 
        ;; { ower, repo, ncommits, last_polled, master_chain : [ Commit, ... ] }
@@ -84,17 +83,13 @@
                 [type "application/x-template"])
          (div ([class "todo_section"]
                [id "{{todo_id}}"])
-           (div ([class "todo_bookkeeping_line"])
-             (h3 (span (#|[onclick "toggle_body('{{todo_id}}');"]|#)
-                       "{{owner}}/{{repo}}"))
-             (div ([class "body_container"])))))
+           (div (h3 "{{owner}}/{{repo}}")
+                (div ([class "body_container"])))))
 
        (script ([id "template_todo_body"]
                 [type "application/x-template"])
          "{{#if commits_ok}}"
          (div ([class "todo_body"])
-           (div ([class "todo_empty"])
-                "No todo items for this repo.")
            ;; Prologue
            "{{#if release_sha}}"
            (div ([class "todo_bookkeeping_line"])
@@ -127,9 +122,31 @@
        (button ([type "button"]
                 [onclick "clear_local_storage();"])
          "Clear local storage"))
-  (h1 "Repository recent master commits")
+  (h1 "Repo release tool")
+  (h2 "Recent master commits")
+  (div ([class "help_text"])
+       "The listings below show commits to master branches since branch-day. "
+       "Styling indicates "
+       (span ([class "commit_picked_example"])
+             "commits that have been picked (merged) already")
+       " and "
+       (span ([class "commit_attn_example"])
+             "commits that mention the words \"merge\" or \"release\"")
+       ". "
+       "Selecting items to pick updates the "
+       (a ([href "#todo_section_header"]) "to-do summary") mdash
+       "this page does not make any repo alterations itself. "
+       "Local storage is used to cache updates from GitHub.")
+  (div ([class "uninitialized_text"])
+       "Select a manager or repo above.")
   (div ([id "repo_section_container"]))
-  (h1 "To do summary")
+  (hr)
+  (h2 ([id "todo_section_header"]) "To do summary")
+  (div ([class "help_text"])
+       "Commands to update (and create, if necessary) release branches "
+       "are shown below, based on commits selected above. "
+       "The commands assume a checkout of the appropriate repo with "
+       "a pushable \"origin\" remote.")
   (div ([id "todo_section_container"]))
   (div ([style "endblock"]) nbsp)
   (script "initialize_page();")))

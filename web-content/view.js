@@ -35,10 +35,6 @@ function select_id(id) {
 /* ============================================================
    Repo callbacks */
 
-function toggle_body(id) {
-    select_id(id).find('.body_container').toggle();
-}
-
 function repo_expand_all(id) {
     select_id(id).find('.commit_rest_msg').show();
 }
@@ -67,16 +63,15 @@ function toggle_todo_body(id) {
 }
 
 function todo_repo_update(owner, repo) {
-    var show_bookkeeping = false;
+    var show_repo = false;
     $.each(get_repo_commits(owner, repo), function(index, sha) {
         var show_commit = view_state.commits_picked.get(sha) || false;
         select_id('todo_commit_' + sha).toggle(show_commit);
-        show_bookkeeping = show_bookkeeping || show_commit;
+        show_repo = show_repo || show_commit;
     });
 
     var todo_id = make_todo_id(owner, repo);
-    select_id(todo_id).find('.todo_bookkeeping_line').toggle(show_bookkeeping);
-    select_id(todo_id).find('.todo_empty').toggle(!show_bookkeeping);
+    select_id(todo_id).toggle(show_repo);
 }
 
 /* ============================================================
@@ -116,6 +111,8 @@ function initialize_page() {
             initialize_for_repo(q.repo);
         } else if (ok_name(q.manager)) {
             initialize_for_manager(q.manager);
+        } else {
+            $(".uninitialized_text").toggle(true);
         }
     });
 }
