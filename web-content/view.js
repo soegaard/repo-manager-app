@@ -17,8 +17,7 @@ function register_repo_commit_list(owner, repo, commits) {
 }
 
 function get_repo_commits(owner, repo) {
-    var key = owner + '/' + repo;
-    return view_state.repo_commits.get(key) || [];
+    return view_state.repo_commits.get(repo_key(owner, repo)) || [];
 }
 
 function set_commit_will_pick(sha, will_pick) {

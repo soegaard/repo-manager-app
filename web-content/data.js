@@ -14,13 +14,14 @@ RepoInfo = {
   last_polled : String, -- Date.toISOString()
   master_sha : String / null,
   release_sha : String / null,
-  commits : [CommitInfo, ...],  -- unsorted
+  commits : [CommitInfo, ...],  -- unsorted, only from server
 }
 
 AugmentedRepoInfo = RepoInfo + {
   timestamp : Integer, -- Date.UTC()
   branch_day_sha : String,
   commits_map : Map[sha => CommitInfo],
+  local_commits : [CommitInfo, ...], -- unsorted, only from github/local
   master_commits : [AnnotatedCommitInfo, ...],
 }
 
@@ -125,8 +126,8 @@ function data_repo_info(owner, repo, k) {
             dataType: 'json',
             cache : false,
             success : function(data) {
-                merge_local_info(repo_key(owner, repo), data, true);
                 augment_repo_info(data);
+                merge_local_info(repo_key(owner, repo), data, true);
                 cache.repo_info.set(key, data);
                 k(data);
             }
@@ -144,15 +145,15 @@ function merge_local_info(key, info, loud) {
         info.master_sha = localri.master_sha;
         info.release_sha = localri.release_sha;
         $.each(localri.commits, function(index, ci) {
-            info.commits.push(ci);
+            info.commits_map.set(ci.sha, ci)
         });
+        augment_repo_info_update(info);
     }
 }
 
 function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
     var now = Date.now();
-    augment_repo_info1(ri);
     console.log("github: fetching refs: ", repo_key(owner, repo));
     $.ajax({
         url: 'https://api.github.com/repos/' + owner + '/' + repo + '/git/refs/heads',
@@ -170,13 +171,6 @@ function gh_poll_repo(owner, repo, k) {
             }
         }});
 }
-
-/* FIXME: need to maintain invariant: 
-   localStorage commits + server commits = all commits up to localStorage timestamp
-   The problem: suppose we check twice, get updates both times.
-   Then all commits = Server + Diff1 + Diff2
-   But we only store Diff2 commits; Diff1 commits get lost. Whoops.
-*/
 
 function gh_update_repo(ri, data, k) {
     // data : [{ref:String, object:{type: ("commit"|?), sha: String}}, ...]
@@ -196,37 +190,31 @@ function gh_update_repo(ri, data, k) {
             }
         }
     });
-    gh_get_commits(ri, heads_to_update, function(commits_map) {
-        var commits = [];
-        commits_map.forEach(function(ci, sha) { commits.push(ci); });
+    var new_map = new Map();
+    gh_get_commits(ri, heads_to_update, new_map, 0, function() {
+        new_map.forEach(function(ci, sha) { ri.local_commits.push(ci); });
         localStorage.setItem('repo/' + repo_key(ri.owner, ri.repo), JSON.stringify({
             timestamp: timestamp,
             master_sha: master_sha,
             release_sha: release_sha,
-            commits: commits
+            commits: $.map(ri.local_commits, gh_trim_commit_info)
         }));
         merge_local_info(repo_key(ri.owner, ri.repo), ri, false);
-        augment_repo_info(ri);
         k();
     });
 }
 
-function gh_get_commits(ri, head_shas, k) {
-    var new_commits = new Map();
-    gh_get_commits_rec(ri, head_shas, new_commits, k, 0);
-}
-
-function gh_get_commits_rec(ri, head_shas, new_commits, k, i) {
+function gh_get_commits(ri, head_shas, new_map, i, k) {
     if (i < head_shas.length) {
-        gh_get_commits1(ri, head_shas[i], new_commits, function() {
-            gh_get_commits_rec(ri, head_shas, new_commits, k, i+1);
+        gh_get_commits1(ri, head_shas[i], new_map, function() {
+            gh_get_commits(ri, head_shas, new_map, i+1, k);
         });
     } else {
-        k(new_commits);
+        k();
     }
 }
 
-function gh_get_commits1(ri, head_sha, new_commits, k) {
+function gh_get_commits1(ri, head_sha, new_map, k) {
     $.ajax({
         url: 'https://api.github.com/repos/' +
             ri.owner + '/' + ri.repo + '/commits?sha=' + head_sha,
@@ -238,9 +226,10 @@ function gh_get_commits1(ri, head_sha, new_commits, k) {
             var sha = head_sha;
             while (page_map.has(sha)
                    && !ri.commits_map.has(sha)
+                   && !new_map.has(sha)
                    && sha != ri.branch_day_sha) {
                 var ci = page_map.get(sha);
-                new_commits.set(sha, ci);
+                new_map.set(sha, ci);
                 if (ci.parents.length == 1) {
                     sha = ci.parents[0].sha;
                 } else {
@@ -248,12 +237,12 @@ function gh_get_commits1(ri, head_sha, new_commits, k) {
                     break;
                 }
             }
-            if (ri.commits_map.has(sha)) {
-                k();
-            } else if (sha == ri.branch_day_sha) {
+            if (ri.commits_map.has(sha)
+                || new_map.has(sha)
+                || sha == ri.branch_day_sha) {
                 k();
             } else {
-                gh_get_commits1(ri, sha, new_commits, k);
+                gh_get_commits1(ri, sha, new_map, k);
             }
         }
     });
@@ -275,17 +264,18 @@ function clear_local_storage() {
 
 /* ============================================================ */
 
-function augment_repo_info1(info) {
-    info.branch_day_sha = cache.config.branch_day[info.owner + '/' + info.repo];
+function augment_repo_info(info) {
+    info.branch_day_sha = cache.config.branch_day[repo_key(info.owner, info.repo)];
     info.timestamp = Date.parse(info.last_polled);
     info.commits_map = make_commits_map(info.commits);
-    if (!info.error_line) info.error_line = null;  /* may be overridden */
-}
-
-function augment_repo_info(info) {
-    augment_repo_info1(info);
+    info.error_line = null;  /* may be overridden */
     info.id = make_repo_id(info.owner, info.repo);
     info.todo_id = make_todo_id(info.owner, info.repo);
+    info.local_commits = [];
+    augment_repo_info_update(info);
+}
+
+function augment_repo_info_update(info) {
     add_release_map(info);
     add_master_chain(info);
     info.commits_ok = (info.error_line == null);
