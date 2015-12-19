@@ -11,14 +11,15 @@ Config = {
 ServerRepoInfo = {
   owner : String,
   repo : String,
-  last_polled : String, -- Date.toISOString()
+  timestamp : Integer, -- Date.UTC()
+  refs_etag : String / null,
   master_sha : String / null,
   release_sha : String / null,
   commits : [CommitInfo, ...],  -- unsorted, only from server
 }
 
 RepoInfo = ServerRepoInfo + {
-  timestamp : Integer, -- Date.UTC()
+  last_polled : String, -- Date.toISOString()
   branch_day_sha : String,
   commits_map : Map[sha => CommitInfo],
   local_commits : [CommitInfo, ...], -- unsorted, only from github/local
@@ -40,6 +41,7 @@ AnnotatedCommitInfo = CommitInfo + {
 
 LocalRepoInfo = {
   timestamp: Integer, -- Date.UTC()
+  refs_etag: String,
   master_sha: String / null,
   release_sha: String / null,
   commits : [CommitInfo, ...] -- unsorted, only commits not in server RepoInfo
@@ -142,12 +144,10 @@ function load_local_info(ri, loud) {
     if (localri && localri.timestamp > ri.timestamp) {
         if (loud) console.log("local information found: ", key);
         ri.timestamp = localri.timestamp;
+        ri.refs_etag = localri.refs_etag;
         ri.master_sha = localri.master_sha;
         ri.release_sha = localri.release_sha;
         ri.local_commits = localri.commits;
-        $.each(localri.commits, function(index, ci) {
-            ri.commits_map.set(ci.sha, ci)
-        });
         augment_repo_info_update(ri);
     }
 }
@@ -155,6 +155,7 @@ function load_local_info(ri, loud) {
 function save_local_info(ri) {
     localStorage.setItem('repo/' + repo_key(ri.owner, ri.repo), JSON.stringify({
         timestamp: ri.timestamp,
+        refs_etag: ri.refs_etag,
         master_sha: ri.master_sha,
         release_sha: ri.release_sha,
         commits: $.map(ri.local_commits, gh_copy_commit_info)
@@ -170,30 +171,33 @@ function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
     var now = Date.now();
     console.log("github: fetching refs: ", repo_key(owner, repo));
+    // console.log("  with etag =", ri.refs_etag);
     $.ajax({
         url: 'https://api.github.com/repos/' + owner + '/' + repo + '/git/refs/heads',
         dataType: 'json',
         headers : {
             // "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
+            "If-None-Match": ri.refs_etag || ""
         },
         cache: false,
         success: function(data, status, jqxhr) {
-            console.log("status =", status);
-            console.log("response =", jqxhr.getAllResponseHeaders());
+            // console.log("status =", status);
+            // console.log("response =", jqxhr.getAllResponseHeaders());
+            var etag = jqxhr.getResponseHeader("ETag");
             if (status == "notmodified") {
                 ri.timestamp = now;
-                ri.last_polled = (new Date(now)).toISOString();
+                ri.refs_etag = etag;
                 save_local_info(ri);
+                augment_repo_info_update(ri);
                 k();
             } else {
-                gh_update_repo(ri, data, k);
+                gh_update_repo(ri, data, now, etag, k);
             }
         }});
 }
 
-function gh_update_repo(ri, data, k) {
+function gh_update_repo(ri, data, now, etag, k) {
     // data : [{ref:String, object:{type: ("commit"|?), sha: String}}, ...]
-    var timestamp = Date.now();
     var master_sha = ri.master_sha, release_sha = ri.release_sha;
     var heads_to_update = [];
     $.each(data, function(index, refinfo) {
@@ -211,7 +215,8 @@ function gh_update_repo(ri, data, k) {
     });
     var new_map = new Map();
     gh_get_commits(ri, heads_to_update, new_map, 0, function() {
-        ri.timestamp = timestamp;
+        ri.timestamp = now;
+        ri.refs_etag = etag;
         ri.master_sha = master_sha;
         ri.release_sha = release_sha;
         new_map.forEach(function(ci, sha) { ri.local_commits.push(ci); });
@@ -293,7 +298,10 @@ function clear_local_storage() {
 
 function augment_repo_info(info) {
     info.branch_day_sha = cache.config.branch_day[repo_key(info.owner, info.repo)];
-    info.timestamp = Date.parse(info.last_polled);
+    // FIXME: make timestamp part of ServerRepoInfo
+    if (!info.timestamp) info.timestamp = Date.parse(info.last_polled);
+    // FIXME: make refs_etag part of ServerRepoInfo
+    if (!info.refs_etag) info.refs_etag = null;
     info.commits_map = make_commits_map(info.commits);
     info.error_line = null;  /* may be overridden */
     info.id = make_repo_id(info.owner, info.repo);
@@ -304,6 +312,9 @@ function augment_repo_info(info) {
 
 function augment_repo_info_update(info) {
     info.last_polled = (new Date(info.timestamp)).toISOString();
+    $.each(info.local_commits, function(index, ci) {
+        info.commits_map.set(ci.sha, ci)
+    });
     add_release_map(info);
     add_master_chain(info);
     info.commits_ok = (info.error_line == null);
@@ -312,8 +323,8 @@ function augment_repo_info_update(info) {
 
 function make_commits_map(commits) {
     var map = new Map();
-    $.each(commits, function(index, commit) {
-        map.set(commit.sha, commit);
+    $.each(commits, function(index, ci) {
+        map.set(ci.sha, ci);
     });
     return map;
 }

@@ -162,8 +162,6 @@ function add_repo_section(owner, repo) {
 }
 
 function add_repo_section_w_info(info) {
-    augment_repo_info(info);
-
     select_id(info.id).replaceWith( $(template_repo_section(info)) );
     select_id(info.todo_id).replaceWith( $(template_todo_section(info)) );
     update_repo_w_info(info);

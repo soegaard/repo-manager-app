@@ -20,10 +20,9 @@
     (defmatch (list owner repo) (string-split (symbol->string o/r) "/"))
     (update1 owner repo branch-day-sha)))
 
+;; FIXME: save refs_etag too
 (define (update1 owner repo branch-day-sha)
-  (define ts-d (seconds->date (current-seconds) #f))
-  (define ts (parameterize ((date-display-format 'iso-8601))
-               (string-append (date->string ts-d #t) "Z")))
+  (define ts (* 1000 (current-seconds)))
   (define master-ri (github:get-ref owner repo "heads/master"))
   (define release-ri (github:get-ref owner repo "heads/release"))
   (define master-sha (and master-ri (ref-sha master-ri)))
@@ -41,7 +40,8 @@
   (define repo-info
     (hash 'owner owner
           'repo repo
-          'last_polled ts
+          'timestamp ts
+          'refs_etag 'null
           'master_sha master-sha
           'release_sha release-sha
           'commits (hash-values commits)))
