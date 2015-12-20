@@ -12,9 +12,9 @@ ServerRepoInfo = {
   owner : String,
   repo : String,
   timestamp : Integer, -- Date.UTC()
-  refs_etag : String / null,
-  master_sha : String / null,
-  release_sha : String / null,
+  refs_etag : String / false,
+  master_sha : String / false,
+  release_sha : String / false,
   commits : [CommitInfo, ...],  -- unsorted, only from server
 }
 
@@ -149,6 +149,8 @@ function load_local_info(ri, loud) {
         ri.release_sha = localri.release_sha;
         ri.local_commits = localri.commits;
         augment_repo_info_update(ri);
+    } else {
+        if (loud && localri) console.log("local information out of date, ignored");
     }
 }
 
@@ -171,7 +173,7 @@ function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
     var now = Date.now();
     console.log("github: fetching refs: ", repo_key(owner, repo));
-    // console.log("  with etag =", ri.refs_etag);
+    console.log("  with etag =", ri.refs_etag);
     $.ajax({
         url: 'https://api.github.com/repos/' + owner + '/' + repo + '/git/refs/heads',
         dataType: 'json',
@@ -185,8 +187,9 @@ function gh_poll_repo(owner, repo, k) {
             // console.log("response =", jqxhr.getAllResponseHeaders());
             var etag = jqxhr.getResponseHeader("ETag");
             if (status == "notmodified") {
+                console.log("  refs not modified");
                 ri.timestamp = now;
-                ri.refs_etag = etag;
+                // ri.refs_etag = etag;
                 save_local_info(ri);
                 augment_repo_info_update(ri);
                 k();

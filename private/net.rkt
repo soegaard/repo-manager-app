@@ -36,12 +36,12 @@ TODO: add redirect option like get-pure-port
       (lambda (in)
         (let ([response-header (purify-port in)])
           (cond [(regexp-match? ok-rx response-header)
-                 (handle in)]
+                 (handle in response-header)]
                 [else
                  (if (string? fail)
                      (error who "~a\n  url: ~e\n  response: ~e" fail (url->string url)
                             (read-line (open-input-string response-header) 'any))
-                     (fail response-header in))]))))))
+                     (fail in response-header))]))))))
 
 (define ok-rx #rx"^HTTP/1\\.. 20.")
 
@@ -49,12 +49,13 @@ TODO: add redirect option like get-pure-port
 
 (define (mk-no-data-method who0 method)
   (lambda (url
-           #:headers [headers null]
-           #:handle [handle void]
-           #:who [who who0]
-           #:fail [fail "failed"])
+      #:headers [headers null]
+      #:handle [handle1 #f]
+      #:handle2 [handle2 (if handle1 (lambda (in headers) (handle1 in)) void)]
+      #:who [who who0]
+      #:fail [fail "failed"])
     (do-method who url method #f
-               handle fail headers #f)))
+               handle2 fail headers #f)))
 
 (define get/url (mk-no-data-method 'get/url get-impure-port))
 (define head/url (mk-no-data-method 'head/url head-impure-port))
@@ -62,13 +63,14 @@ TODO: add redirect option like get-pure-port
 
 (define (mk-data-method who0 method)
   (lambda (url
-           #:headers [headers null]
-           #:data [data #f]
-           #:handle [handle void]
-           #:who [who who0]
-           #:fail [fail "failed"])
+      #:headers [headers null]
+      #:data [data #f]
+      #:handle [handle1 #f]
+      #:handle2 [handle2 (if handle1 (lambda (in headers) (handle1 in)) void)]
+      #:who [who who0]
+      #:fail [fail "failed"])
     (do-method who url method #t
-               handle fail headers data)))
+               handle2 fail headers data)))
 
 (define post/url (mk-data-method 'post/url post-impure-port))
 (define put/url (mk-data-method 'put/url put-impure-port))

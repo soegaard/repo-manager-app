@@ -21,21 +21,25 @@
 (define ACCEPT "Accept: application/vnd.github.v3+json")
 
 (define (wrap/no-data who0 proc)
-  (lambda (url #:headers [headers null] #:handle [handle read-json]
+  (lambda (url #:headers [headers null]
+          #:handle [handle1 read-json]
+          #:handle2 [handle2 (lambda (in headers) (handle1 in))]
           #:fail [fail "failed"] #:who [who who0]
           #:user-credentials? [user-credentials? #f])
     (proc (add-credentials url user-credentials?)
           #:headers (list* USER-AGENT ACCEPT headers)
-          #:handle handle #:fail fail #:who who)))
+          #:handle2 handle2 #:fail fail #:who who)))
 
 (define (wrap/data who0 proc)
-  (lambda (url #:headers [headers null] #:handle [handle read-json]
+  (lambda (url #:headers [headers null]
+          #:handle [handle1 read-json]
+          #:handle2 [handle2 (lambda (in headers) (handle1 in))]
           #:fail [fail "failed"] #:who [who who0]
           #:user-credentials? [user-credentials? #f]
           #:data [data #f])
     (proc (add-credentials url user-credentials?)
           #:headers (list* USER-AGENT ACCEPT headers)
-          #:handle handle #:fail fail #:who who #:data data)))
+          #:handle2 handle2 #:fail fail #:who who #:data data)))
 
 (define get/github (wrap/no-data 'get/github get/url))
 (define head/github (wrap/no-data 'head/github head/url))
