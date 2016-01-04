@@ -395,6 +395,7 @@ function augment_commit_info(index, info, repo_info) {
 }
 
 function commit_needs_attention(ci) {
+    if (/Post-release version for the v[0-9.]* release/.test(ci.message)) return false;
     return /merge|release/i.test(ci.message);
 }
 
