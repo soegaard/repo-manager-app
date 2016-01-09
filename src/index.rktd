@@ -93,8 +93,12 @@
            ;; Prologue
            "{{#if release_sha}}"
            (div ([class "todo_bookkeeping_line"])
+                "# using existing release branch")
+           (div ([class "todo_bookkeeping_line"])
                 "git pull; git checkout release")
            "{{else}}"
+           (div ([class "todo_bookkeeping_line"])
+                "# create new release branch")
            (div ([class "todo_bookkeeping_line"])
                 "git pull; git checkout -b release {{branch_day_sha}}")
            "{{/if}}"
