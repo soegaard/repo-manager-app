@@ -1,4 +1,6 @@
 (
+jeapostrophe/racket-cheat
+racket/racket
 racket/2d
 racket/algol60
 racket/cext-lib
@@ -51,7 +53,6 @@ racket/preprocessor
 racket/profile
 racket/r5rs
 racket/r6rs
-racket/racket
 racket/racklog
 racket/rackunit
 racket/readline
@@ -77,4 +78,5 @@ racket/unix-socket
 racket/web-server
 racket/wxme
 racket/xrepl
+stamourv/optimization-coach
 )

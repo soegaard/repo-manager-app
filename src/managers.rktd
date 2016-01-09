@@ -1,9 +1,11 @@
 ((jay
+  jeapostrophe/racket-cheat
   racket/datalog
   racket/plai
   racket/racklog
   racket/sgl
-  racket/web-server)
+  racket/web-server
+  )
  (mflatt
   racket/algol60
   racket/cext-lib
@@ -28,13 +30,7 @@
   racket/snip
   racket/syntax-color
   racket/trace
-  racket/wxme)
- (ntoronto
-  racket/icons
-  racket/images
-  racket/math
-  racket/plot
-  ;; racket/unstable-flonum
+  racket/wxme
   )
  (robby
   racket/2d ;;  racket/unstable-2d
@@ -46,21 +42,14 @@
   racket/pict-snip
   racket/planet
   racket/redex
-  racket/string-constants)
+  racket/string-constants
+  )
  (samth
   racket/typed-racket
-  ;; racket/unstable-debug-lib
   )
  (stamourv
-  racket/contract-profile
-  racket/profile
-  ;; stamourv/optimization-coach
-  )
- (ryanc
-  racket/class-iop
   racket/compatibility
-  racket/data
-  racket/db
+  racket/contract-profile
   racket/deinprogramm
   racket/distributed-places
   racket/distro-build
@@ -69,15 +58,18 @@
   racket/frtime
   racket/future-visualizer
   racket/html
+  racket/icons
+  racket/images
   racket/lazy
-  racket/macro-debugger
   racket/main-distribution
   racket/main-distribution-test
+  racket/math
   racket/option-contract
   racket/picturing-programs
+  racket/plot
   racket/plt-web
   racket/preprocessor
-  racket/racket
+  racket/profile
   racket/rackunit
   racket/realm
   racket/remote-shell
@@ -88,4 +80,14 @@
   racket/srfi
   racket/swindle
   racket/unix-socket
-  racket/xrepl))
+  racket/xrepl
+  stamourv/optimization-coach
+  )
+ (ryanc
+  racket/class-iop
+  racket/data
+  racket/db
+  racket/macro-debugger
+  racket/racket
+  )
+ )
