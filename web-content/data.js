@@ -51,7 +51,7 @@ LocalRepoInfo = {
 
 /* Filesystem:
 
-  data/config.json => Config
+  data/base.json => Config
   data/repo_{{owner}}_{{repo}}.json => RepoInfo
 
 */
@@ -96,7 +96,7 @@ var cache = {
 function data_cache_config(k) {
     if (!cache.config) {
         $.ajax({
-            url : 'data/config.json',
+            url : 'data/base.json',
             dataType : 'json',
             cache : false,
             success : function(data) {

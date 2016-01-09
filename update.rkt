@@ -9,7 +9,7 @@
 
 (define MAX-CHAIN-LENGTH 500)
 (define-runtime-path data-dir "web-content/data")
-(define-runtime-path config-file "web-content/data/config.json")
+(define-runtime-path config-file "web-content/data/base.json")
 
 (define config (call-with-input-file* config-file read-json))
 (define branch-day-map (hash-ref config 'branch_day '#hash()))
@@ -54,7 +54,7 @@
 
 (define (add-commits-from-file commits out-file)
   (let ([old-repo-info
-         (with-handlers ([exn:fail? '#hasheq()])
+         (with-handlers ([exn:fail? (lambda _ #f)])
            (call-with-input-file* out-file read-json))])
     (when old-repo-info
       (for ([ci (in-list (hash-ref old-repo-info 'commits null))])
