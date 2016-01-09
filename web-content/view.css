@@ -103,10 +103,12 @@ table.repo_section_body td {
   color: gray;
 }
 .commit_unpicked.commit_attn:nth-child(even) {
-  background-color: #fff8f8; /* pink; #FDD */
+  background-color: #fff0f0; /* pink; #FDD */
+  outline: 1pt dotted red;
 }
 .commit_unpicked.commit_attn:nth-child(odd) {
-  background-color: #fff0f0; /* pink; */
+  background-color: #ffe0e0; /* pink; */
+  outline: 1pt dotted red;
 }
 .commit_picked:nth-child(even), .commit_no_attn:nth-child(even) {
   background-color: white;
@@ -119,7 +121,7 @@ table.repo_section_body td {
   color: gray;
 }
 .commit_attn_example {
-  background-color: #fff8f8;
+  background-color: #ffe0e0;
 }
 
 /* ============================================================ */
