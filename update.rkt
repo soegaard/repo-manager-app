@@ -26,7 +26,7 @@
   (define branch-day-sha (hash-ref branch-day-map o/r))
   (defmatch (list master-sha release-sha refs-etag) (get-refs+etag owner repo))
   (define commits (make-hash))
-  (define out-file (build-path data-dir (format "repo_~a_~a" owner repo)))
+  (define out-file (build-path data-dir (format "repo_~a_~a.json" owner repo)))
   (add-commits-from-file commits out-file)
   (add-commits owner repo master-sha branch-day-sha commits)
   (add-commits owner repo release-sha branch-day-sha commits)
