@@ -1,17 +1,17 @@
 (html
- (head (link ([href "/view.css"]
+ (head (link ([href "view.css"]
               [rel "stylesheet"]
               [type "text/css"]))
 
-       (script ([src "/jquery-2.1.4.min.js"]
+       (script ([src "jquery-2.1.4.min.js"]
                 [type "text/javascript"]))
-       (script ([src "/jquery.timeago.js"]
+       (script ([src "jquery.timeago.js"]
                 [type "text/javascript"]))
-       (script ([src "/handlebars-v4.0.2.js"]
+       (script ([src "handlebars-v4.0.2.js"]
                 [type "text/javascript"]))
-       (script ([src "/data.js"]
+       (script ([src "data.js"]
                 [type "text/javascript"]))
-       (script ([src "/view.js"]
+       (script ([src "view.js"]
                 [type "text/javascript"]))
 
        ;; { owner, repo, id }
