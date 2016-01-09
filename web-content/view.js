@@ -86,6 +86,15 @@ function initialize_page() {
     template_repo_body = Handlebars.compile($('#template_repo_body').html());
     template_todo_section = Handlebars.compile($('#template_todo_section').html());
     template_todo_body = Handlebars.compile($('#template_todo_body').html());
+    var q = parse_url_query();
+
+    if (ok_repo(q.repo)) {
+        $("#main_header").html("Repository: " + q.repo);
+    } else if (ok_name(q.manager)) {
+        $("#main_header").html("Repositories managed by: " + q.manager);
+    } else {
+        $(".uninitialized_text").toggle(true);
+    }
 
     data_cache_config(function() {
         var select = select_id('navigation');
@@ -105,13 +114,10 @@ function initialize_page() {
             window.location.search = '?' + q;
         });
 
-        var q = parse_url_query();
         if (ok_repo(q.repo)) {
             initialize_for_repo(q.repo);
         } else if (ok_name(q.manager)) {
             initialize_for_manager(q.manager);
-        } else {
-            $(".uninitialized_text").toggle(true);
         }
     });
 }

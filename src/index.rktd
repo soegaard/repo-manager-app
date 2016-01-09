@@ -122,7 +122,7 @@
        (button ([type "button"]
                 [onclick "clear_local_storage();"])
          "Clear local storage"))
-  (h1 "Repo release tool")
+  (h1 ([id "main_header"]) "Repository status")
   (h2 "Recent master commits")
   (div ([class "help_text"])
        "The listings below show commits to master branches since branch-day. "
