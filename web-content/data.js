@@ -88,8 +88,9 @@ function repo_key(owner, repo) {
    Ajax */
 
 var cache = {
-    config: null,         // Config or null
-    repo_info : new Map() // repo_key(owner, repo) => RepoInfo
+    config: null,          // Config or null
+    repo_info : new Map(), // repo_key(owner, repo) => RepoInfo
+    use_etag : true        // Boolean
 };
 
 function data_cache_config(k) {
@@ -173,13 +174,13 @@ function gh_poll_repo(owner, repo, k) {
     var ri = cache.repo_info.get(repo_key(owner, repo));
     var now = Date.now();
     console.log("github: fetching refs: ", repo_key(owner, repo));
-    console.log("  with etag =", ri.refs_etag);
+    if (cache.use_etag) console.log("  with etag =", ri.refs_etag);
     $.ajax({
         url: 'https://api.github.com/repos/' + owner + '/' + repo + '/git/refs/heads',
         dataType: 'json',
         headers : {
             // "If-Modified-Since": (new Date(ri.timestamp)).toUTCString()
-            "If-None-Match": ri.refs_etag || ""
+            "If-None-Match": (cache.use_etag ? ri.refs_etag : "") || ""
         },
         cache: false,
         success: function(data, status, jqxhr) {
@@ -189,7 +190,6 @@ function gh_poll_repo(owner, repo, k) {
             if (status == "notmodified") {
                 console.log("  refs not modified");
                 ri.timestamp = now;
-                // ri.refs_etag = etag;
                 save_local_info(ri);
                 augment_repo_info_update(ri);
                 k();

@@ -95,6 +95,7 @@ function initialize_page() {
     } else {
         $(".uninitialized_text").toggle(true);
     }
+    handle_options(q);
 
     data_cache_config(function() {
         var select = select_id('navigation');
@@ -130,6 +131,13 @@ function parse_url_query() {
         dict[assign[0]] = assign[1] || true;
     });
     return dict;
+}
+
+function handle_options(q) {
+    if (q.noetag) {
+        console.log("option found: noetag");
+        cache.use_etag = false;
+    }
 }
 
 function initialize_for_manager(m) {
