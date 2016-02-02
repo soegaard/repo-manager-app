@@ -1,13 +1,17 @@
 #lang racket/base
 (require (rename-in racket/match [match-define defmatch])
+         racket/list
          racket/runtime-path
          racket/date
          racket/string
+         racket/promise
          json
          "private/github.rkt")
 (provide (all-defined-out))
 
-(define MAX-CHAIN-LENGTH 500)
+(define DFS-FUEL 500)
+(define BFS-FUEL 500)
+
 (define-runtime-path data-dir "web-content/data")
 (define-runtime-path config-file "web-content/data/base.json")
 
@@ -25,11 +29,24 @@
   (defmatch (list owner repo) (string-split (symbol->string o/r) "/"))
   (define branch-day-sha (hash-ref branch-day-map o/r))
   (defmatch (list master-sha release-sha refs-etag) (get-refs+etag owner repo))
-  (define commits (make-hash))
   (define out-file (build-path data-dir (format "repo_~a_~a.json" owner repo)))
-  (add-commits-from-file commits out-file)
-  (add-commits owner repo master-sha branch-day-sha commits)
-  (add-commits owner repo release-sha branch-day-sha commits)
+  (define cache (make-hash))
+  ;; We want commits = { ^branch-day master release } exactly.
+  ;; 1. build a cache containing at least all commits in { ^branch-day master release }
+  (add-commits-from-file cache out-file)
+  (when master-sha
+    (or (fetch-commits owner repo master-sha branch-day-sha cache)
+        (fetch-commits/dominator owner repo master-sha branch-day-sha cache)))
+  (when release-sha
+    (or (fetch-commits owner repo release-sha branch-day-sha cache)
+        (fetch-commits/dominator owner repo release-sha branch-day-sha cache)))
+  ;; 2. remove everything reachable from branch-day
+  (remove-commits branch-day-sha cache)
+  ;; 3. finally, copy over everything reachable from { master release }
+  ;; (in case cache had random unrelated commits not reachable from branch-day)
+  (define commits (make-hash))
+  (when master-sha (add-commits master-sha commits cache))
+  (when master-sha (add-commits release-sha commits cache))
   (define repo-info
     (hash 'owner owner
           'repo repo
@@ -60,27 +77,63 @@
       (for ([ci (in-list (hash-ref old-repo-info 'commits null))])
         (hash-set! commits (hash-ref ci 'sha) ci)))))
 
-(define (add-commits owner repo start-sha base-sha commits)
-  (define cache (make-hash))
-  (define fuel MAX-CHAIN-LENGTH)
-  (let loop ([sha start-sha])
+;; fetch-commits : ... -> boolean
+;; Attempts to add all commits base-sha..start-sha; may fail if branch bypasses base-sha.
+;; Returns #t if all chains terminated at base-sha, #f if any out of fuel
+(define (fetch-commits owner repo start-sha base-sha cache)
+  (define visited (make-hash))
+  (let loop ([sha start-sha] [fuel DFS-FUEL])
+    (cond [(equal? sha base-sha) #t]
+          [(hash-ref visited sha #f) #t]
+          [(zero? fuel) (eprintf "*** dfs out of fuel\n") #f]
+          [else
+           (hash-set! visited sha #t)
+           (define ci (or (get-commit owner repo sha cache) #hash()))
+           (for/and ([parent (hash-ref ci 'parents null)])
+             (loop (hash-ref parent 'sha) (sub1 fuel)))])))
+
+;; Add all commits in base-sha..start-sha (and more) by searching for a dominator.
+(define (fetch-commits/dominator owner repo start-sha base-sha cache)
+  (define visited (make-hash))
+  (eprintf "*** finding dominator for ~a/~a\n" owner repo)
+  ;; Invariant: every path from some node in (list start-sha base-sha) to root
+  ;; goes through some node in the worklist.
+  (let loop ([worklist (list start-sha base-sha)] [fuel BFS-FUEL])
     (when (zero? fuel)
-      (eprintf "WARNING: too many commits for ~a/~a\n" owner repo))
-    (when (and sha (positive? fuel) (not (equal? sha base-sha)))
-      (set! fuel (sub1 fuel))
-      (define ci (get-commit owner repo sha cache))
-      (hash-set! commits sha ci)
-      (define parents (hash-ref ci 'parents null))
-      (for ([parent parents])
-        (loop (hash-ref parent 'sha))))))
+      (error 'update "bfs out of fuel: ~a/~a" owner repo))
+    ;; We're done when the worklist is a single node.
+    (when (> (length worklist) 1)
+      (let* ([worklist (remove-duplicates worklist)]
+             [cis (for/list ([sha worklist]
+                             #:when (not (hash-ref visited sha #f)))
+                    (hash-set! visited sha #t)
+                    (get-commit owner repo sha cache))])
+        (loop (for*/list ([ci cis] [parent (hash-ref ci 'parents null)]) (hash-ref parent 'sha))
+              (sub1 fuel))))))
 
 (define (get-commit owner repo sha cache)
   (or (hash-ref cache sha #f)
       (let ([commits (github:get-commits owner repo sha)])
         (for ([ci (in-list commits)])
-          ;; (eprintf "  caching ~s\n" (hash-ref ci 'sha))
           (hash-set! cache (hash-ref ci 'sha) ci))
         (hash-ref cache sha))))
+
+(define (remove-commits sha cache)
+  (let loop ([sha sha])
+    (define ci (hash-ref cache sha #f))
+    (when ci
+      (hash-remove! cache sha)
+      (for ([parent (hash-ref ci 'parents null)])
+        (loop (hash-ref parent 'sha))))))
+
+(define (add-commits sha commits cache)
+  (let loop ([sha sha])
+    (when (not (hash-has-key? commits sha))
+      (define ci (hash-ref cache sha #f))
+      (when ci
+        (hash-set! commits sha ci)
+        (for ([parent (hash-ref ci 'parents null)])
+          (loop (hash-ref parent 'sha)))))))
 
 ;; ========================================
 

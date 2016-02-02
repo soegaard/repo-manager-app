@@ -351,8 +351,8 @@ function po_commits(info, head) {
         var state = visited.get(sha) || 0;
         if (state == 0) {
             visited.set(sha, 1);
-            $.each(ci.parents, function(index, parent) { stack.push(parent.sha); });
             stack.push(sha); // next time we'll be in state 1
+            $.each(ci.parents.reverse(), function(index, parent) { stack.push(parent.sha); });
         } else if (state == 1) {
             visited.set(sha, 2);
             po.push(ci);
@@ -360,7 +360,7 @@ function po_commits(info, head) {
             // already emitted
         }
     }
-    return po.reverse();  // ????
+    return po;
 }
 
 function add_release_map(info) {
@@ -404,6 +404,7 @@ function augment_commit_info(index, info, repo_info) {
 
 function commit_needs_attention(ci) {
     if (/Post-release version for the v[0-9.]* release/.test(ci.message)) return false;
+    if (/Merge pull request/.test(ci.message)) return false;
     return /merge|release/i.test(ci.message);
 }
 
