@@ -90,7 +90,8 @@ function repo_key(owner, repo) {
 var cache = {
     config: null,          // Config or null
     repo_info : new Map(), // repo_key(owner, repo) => RepoInfo
-    use_etag : true        // Boolean
+    use_etag : true,       // Boolean
+    commits_fuel : 10      // Nat, number of gh page fetches to allow
 };
 
 function data_cache_config(k) {
@@ -217,7 +218,8 @@ function gh_update_repo(ri, data, now, etag, k) {
         }
     });
     var new_map = new Map();
-    gh_get_commits(ri, heads_to_update, new_map, 0, function() {
+    var ghcache = new Map();
+    gh_get_commits(ri, heads_to_update, new_map, ghcache, COMMITS_FUEL, function() {
         ri.timestamp = now;
         ri.refs_etag = etag;
         ri.master_sha = master_sha;
@@ -229,48 +231,48 @@ function gh_update_repo(ri, data, now, etag, k) {
     });
 }
 
-function gh_get_commits(ri, head_shas, new_map, i, k) {
-    if (i < head_shas.length) {
-        gh_get_commits1(ri, head_shas[i], new_map, function() {
-            gh_get_commits(ri, head_shas, new_map, i+1, k);
+// put commits into new_map if reachable from any head_sha and not in ri.commits_map
+function gh_get_commits(ri, heads, new_map, ghcache, fuel, k) {
+    var heads_skipped = [];
+    while (heads.length > 0) {
+        var head1 = heads.pop();
+        if (head1 == ri.branch_day_sha || ri.commits_map.has(head1) || new_map.has(head1)) {
+            continue;
+        } else if (ghcache.has(head1)) {
+            var ci = ghcache.get(head1);
+            new_map.set(head1, ci);
+            $.each(ci.parents, function(index, parent) { heads.push(parent.sha); });
+        } else {
+            heads_skipped.push(head1);
+        }
+    }
+    // heads is empty
+    if (heads_skipped.length == 0) {
+        return;
+    } else if (fuel == 0) {
+        ri.error_line =
+            "Too many commits without reaching the branch-day commit. " +
+            "Check if a branch from before branch-day was merged.";
+        return;
+    } else { // heads_skipped.length > 0 && fuel > 0
+        gh_fetch_commits(ri, heads_skipped[heads_skipped.length-1], ghcache, function() {
+            gh_get_commits(ri, heads_skipped, new_map, ghcache, fuel-1, k);
         });
-    } else {
-        k();
     }
 }
 
-function gh_get_commits1(ri, head_sha, new_map, k) {
+// fetch commits starting at head_sha and put into ghcache
+function gh_fetch_commits(ri, head_sha, ghcache, k) {
     $.ajax({
         url: 'https://api.github.com/repos/' +
             ri.owner + '/' + ri.repo + '/commits?sha=' + head_sha,
         dataType: 'json',
         success: function(data) {
-            console.log("github: fetching commits: ", repo_key(ri.owner, ri.repo), head_sha);
+            console.log("github: fetched commits: ", repo_key(ri.owner, ri.repo), head_sha);
             data = $.map(data, function(ci) { return gh_trim_commit_info(ci); });
-            var page_map = make_commits_map(data);
-            var sha = head_sha;
-            while (page_map.has(sha)
-                   && !ri.commits_map.has(sha)
-                   && !new_map.has(sha)
-                   && sha != ri.branch_day_sha) {
-                var ci = page_map.get(sha);
-                new_map.set(sha, ci);
-                if (ci.parents.length == 1) {
-                    sha = ci.parents[0].sha;
-                } else {
-                    ri.error_line = "Merge node at commit " + sha;
-                    break;
-                }
-            }
-            if (ri.commits_map.has(sha)
-                || new_map.has(sha)
-                || sha == ri.branch_day_sha) {
-                k();
-            } else {
-                gh_get_commits1(ri, sha, new_map, k);
-            }
-        }
-    });
+            add_to_commits_map(ghcache, data);
+            k();
+        }});
 }
 
 function gh_trim_commit_info(ci) {
@@ -315,9 +317,7 @@ function augment_repo_info(info) {
 
 function augment_repo_info_update(info) {
     info.last_polled = (new Date(info.timestamp)).toISOString();
-    $.each(info.local_commits, function(index, ci) {
-        info.commits_map.set(ci.sha, ci)
-    });
+    add_to_commits_map(info.commits_map, info.local_commits);
     add_release_map(info);
     add_master_chain(info);
     info.commits_ok = (info.error_line == null);
@@ -326,50 +326,58 @@ function augment_repo_info_update(info) {
 
 function make_commits_map(commits) {
     var map = new Map();
-    $.each(commits, function(index, ci) {
-        map.set(ci.sha, ci);
-    });
+    add_to_commits_map(map, commits);
     return map;
+}
+
+function add_to_commits_map(commits_map, commits) {
+    $.each(commits, function(index, ci) {
+        commits_map.set(ci.sha, ci);
+    });
+}
+
+// returns postorder array of commit_infos after branch_day_sha to head (ending with head)
+// (Note: postorder w/ parent links is reverse-postorder in causal/time links.)
+function po_commits(info, head) {
+    var po = [];
+    var stack = [];
+    var visited = new Map(); // 1 if visited but not emitted; 2 if emitted (or stop, ie branch-day)
+    visited.set(info.branch_day_sha, 2) // stop at branch day
+    if (head) stack.push(head);
+    while (stack.length > 0) {
+        var sha = stack.pop();
+        var ci = info.commits_map.get(sha);
+        if (!ci) continue;
+        var state = visited.get(sha) || 0;
+        if (state == 0) {
+            visited.set(sha, 1);
+            $.each(ci.parents, function(index, parent) { stack.push(parent.sha); });
+            stack.push(sha); // next time we'll be in state 1
+        } else if (state == 1) {
+            visited.set(sha, 2);
+            po.push(ci);
+        } else if (state == 2) {
+            // already emitted
+        }
+    }
+    return po.reverse();  // ????
 }
 
 function add_release_map(info) {
     var release_map = new Map();
-    var sha = info.release_sha;
-    var m;
-    while (sha && sha != info.branch_day_sha) {
-        release_map.set(sha, "shared");
-        var ci = info.commits_map.get(sha);
+    $.each(po_commits(info, info.release_sha), function(index, ci) {
+        release_map.set(ci.sha, "shared");
         var rx = /\(cherry picked from commit ([0-9a-z]*)\)/g;
         while (m = rx.exec(ci.message)) {
             var picked_sha = m[1];
             release_map.set(picked_sha, "picked");
         }
-        if (ci.parents.length == 1) {
-            sha = ci.parents[0].sha;
-        } else {
-            info.error_line = "Merge node in release branch at commit " + sha;
-            sha = null;
-        }
-    }
+    });
     info.release_map = release_map;
 }
 
 function add_master_chain(info) {
-    /* sets info.{release_map, master_chain, error_line} */
-    var chain = [];
-    var sha = info.master_sha;
-    while (sha && sha != info.branch_day_sha) {
-        var ci = info.commits_map.get(sha);
-        chain.push(ci);
-        if (ci.parents.length == 1) {
-            sha = ci.parents[0].sha;
-        } else {
-            info.error_line = "Merge node in master branch at commit " + sha;
-            info.master_chain = [];
-            return;
-        }
-    }
-    chain = chain.reverse();
+    var chain = po_commits(info, info.master_sha);
     $.each(chain, function(index, ci) { augment_commit_info(index, ci, info); });
     info.master_chain = chain;
 }
