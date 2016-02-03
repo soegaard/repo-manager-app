@@ -219,7 +219,7 @@ function gh_update_repo(ri, data, now, etag, k) {
     });
     var new_map = new Map();
     var ghcache = new Map();
-    gh_get_commits(ri, heads_to_update, new_map, ghcache, COMMITS_FUEL, function() {
+    gh_get_commits(ri, heads_to_update, new_map, ghcache, cache.commits_fuel, function() {
         ri.timestamp = now;
         ri.refs_etag = etag;
         ri.master_sha = master_sha;
@@ -248,12 +248,12 @@ function gh_get_commits(ri, heads, new_map, ghcache, fuel, k) {
     }
     // heads is empty
     if (heads_skipped.length == 0) {
-        return;
+        k();
     } else if (fuel == 0) {
         ri.error_line =
             "Too many commits without reaching the branch-day commit. " +
             "Check if a branch from before branch-day was merged.";
-        return;
+        k();
     } else { // heads_skipped.length > 0 && fuel > 0
         gh_fetch_commits(ri, heads_skipped[heads_skipped.length-1], ghcache, function() {
             gh_get_commits(ri, heads_skipped, new_map, ghcache, fuel-1, k);
