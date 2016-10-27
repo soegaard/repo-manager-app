@@ -70,7 +70,7 @@
   racket/plt-web
   racket/preprocessor
   racket/profile
-  racket/rackunit
+  racket/racket
   racket/realm
   racket/remote-shell
   racket/sandbox-lib
@@ -88,6 +88,6 @@
   racket/data
   racket/db
   racket/macro-debugger
-  racket/racket
+  racket/rackunit
   )
  )
