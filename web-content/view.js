@@ -193,7 +193,7 @@ function update_repo_w_info(info) {
 
     register_repo_commit_list(
         info.owner, info.repo,
-        $.map(info.commits, function(ci) { return ci.sha; }));
+        $.map(info.master_chain, function(ci) { return ci.sha; }));
 }
 
 function check_all_for_updates() {

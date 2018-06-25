@@ -23,7 +23,8 @@ RepoInfo = ServerRepoInfo + {
   branch_day_sha : String,
   commits_map : Map[sha => CommitInfo],
   local_commits : [CommitInfo, ...], -- unsorted, only from github/local
-  master_commits : [AnnotatedCommitInfo, ...],
+  release_map : Map[sha => "shared"|"picked"],
+  master_chain : [AnnotatedCommitInfo, ...],
 }
 
 CommitInfo = {
