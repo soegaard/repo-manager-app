@@ -103,7 +103,7 @@
                 "git pull; git checkout -b release {{branch_day_sha}}")
            "{{/if}}"
            ;; Commit lines
-           "{{#each commits}}"
+           "{{#each master_chain}}"
            "{{#unless is_picked}}"
            (div ([class "todo_commit_line"]
                  [id "todo_commit_{{sha}}"])
