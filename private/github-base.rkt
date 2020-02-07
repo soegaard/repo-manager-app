@@ -3,6 +3,7 @@
          racket/port
          racket/match
          net/url
+         net/base64
          json
          "net.rkt"
          (only-in pkg/private/stage
@@ -26,8 +27,10 @@
           #:handle2 [handle2 (lambda (in headers) (handle1 in))]
           #:fail [fail "failed"] #:who [who who0]
           #:user-credentials? [user-credentials? #f])
-    (proc (add-credentials url user-credentials?)
-          #:headers (list* USER-AGENT ACCEPT headers)
+    (proc url
+          #:headers (list* USER-AGENT ACCEPT
+                           (append (get-authorization-headers user-credentials?)
+                                   headers))
           #:handle2 handle2 #:fail fail #:who who)))
 
 (define (wrap/data who0 proc)
@@ -37,8 +40,10 @@
           #:fail [fail "failed"] #:who [who who0]
           #:user-credentials? [user-credentials? #f]
           #:data [data #f])
-    (proc (add-credentials url user-credentials?)
-          #:headers (list* USER-AGENT ACCEPT headers)
+    (proc url
+          #:headers (list* USER-AGENT ACCEPT
+                           (append (get-authorization-headers user-credentials?)
+                                   headers))
           #:handle2 handle2 #:fail fail #:who who #:data data)))
 
 (define get/github (wrap/no-data 'get/github get/url))
@@ -50,6 +55,22 @@
 
 ;; ----------------------------------------
 
+;; create authorization headers (one or zero) from user/client credentials
+(define (get-authorization-headers user-credentials?)
+  (cond [(and user-credentials? github-user-credentials)
+         (match-define (list user-token) github-user-credentials)
+         (list (format "Authorization: token ~a" user-token))]
+        [user-credentials?
+         (error 'get-authorization-header "user credentials required but not available")]
+        [(and (github-client_id) (github-client_secret))
+         (list (format "Authorization: basic ~a"
+                       (base64-encode
+                        (string->bytes/utf-8
+                         (format "~a:~a" (github-client_id) (github-client_secret)))
+                        "")))]
+        [else null]))
+
+;; add credentials to url; deprecated by github since 2019-11
 (define (add-credentials url user-credentials?)
   (cond [(and user-credentials? github-user-credentials)
          (url-add-query url (list (cons 'access_token github-user-credentials)))]
@@ -57,6 +78,13 @@
          (error 'add-credentials "user credentials required but not available")]
         [else
          (url-add-query url (github-client-credentials))]))
+
+;; The user credentials are optional; stored in $PREFS/github-user-credentials.rktd.
+;; If present, the file contains a single sexpr: a string containing a user token.
+
+;; The client credentials are stored in $PREFS/github-poll-client.rktd.
+;; The file contains an sexpr of the form (list client-id client-secret), where
+;; both client-{id,secret} are strings.
 
 (define github-user-credentials
   (let ([file (build-path (find-system-path 'pref-dir) "github-user-credentials.rktd")])
