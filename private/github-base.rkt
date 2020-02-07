@@ -5,10 +5,7 @@
          net/url
          net/base64
          json
-         "net.rkt"
-         (only-in pkg/private/stage
-                  github-client_id
-                  github-client_secret))
+         "net.rkt")
 (provide get/github
          head/github
          delete/github
@@ -20,6 +17,9 @@
 
 (define USER-AGENT (format "User-Agent: rmculpepper/repo-manager-app/~a" (version)))
 (define ACCEPT "Accept: application/vnd.github.v3+json")
+
+(define github-client_id (make-parameter #f))
+(define github-client_secret (make-parameter #f))
 
 (define (wrap/no-data who0 proc)
   (lambda (url #:headers [headers null]
