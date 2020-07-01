@@ -63,7 +63,6 @@
   racket/math
   racket/option-contract
   racket/picturing-programs
-  racket/plot
   racket/plt-web
   racket/preprocessor
   racket/racket
@@ -91,4 +90,6 @@
   racket/macro-debugger
   racket/rackunit
   )
+ (alex-hhh
+  racket/plot)
  )

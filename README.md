@@ -14,7 +14,7 @@ release process.
  - If there are new repos or the assignment of repos to managers has
    changed, update the manager information:
    - Update `src/repos.rktd` with the output from the release-catalog
-     command `racket scripts/show-sources.rkt ...` (add parentheses).
+     command `racket ${release-catalog}/scripts/show-sources.rkt ...` (add parentheses).
    - Update `src/managers.rktd` with new manager assignments.
    - Run `racket update-managers.rkt` to check the new assignments and
      update the release info.
