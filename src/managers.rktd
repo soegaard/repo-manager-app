@@ -89,7 +89,12 @@
   racket/db
   racket/macro-debugger
   racket/rackunit
+  racket/sasl
   )
  (alex-hhh
   racket/plot)
+ (sperber
+  racket/simple-tree-text-markup)
+ (laurent
+  Metaxal/quickscript)
  )

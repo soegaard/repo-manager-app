@@ -1,4 +1,5 @@
 (
+Metaxal/quickscript
 RenaissanceBug/racket-cookies
 jeapostrophe/racket-cheat
 racket/2d
@@ -59,11 +60,13 @@ racket/realm
 racket/redex
 racket/remote-shell
 racket/sandbox-lib
+racket/sasl
 racket/scheme-lib
 racket/scribble
 racket/serialize-cstruct-lib
 racket/sgl
 racket/shell-completion
+racket/simple-tree-text-markup
 racket/slatex
 racket/slideshow
 racket/snip
