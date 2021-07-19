@@ -47,7 +47,6 @@
   )
  (clements
   racket/compatibility
-  racket/deinprogramm
   racket/distributed-places
   racket/distro-build
   racket/eli-tester
@@ -94,7 +93,8 @@
  (alex-hhh
   racket/plot)
  (sperber
-  racket/simple-tree-text-markup)
+  racket/simple-tree-text-markup
+  racket/deinprogramm)
  (laurent
   Metaxal/quickscript)
  )
