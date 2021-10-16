@@ -30,22 +30,47 @@
 
 ;; ----------------------------------------
 
-(define github-rx
-  (regexp
-   (string-append "^"
-                  "git://github\\.com/([^?/#]+)/([^/?#]+)/?"
-                  "(?:[?]path=([^?#]*))?"
-                  "(?:#([^/?#]+))?"
-                  "$")))
+;; Repo URL forms:
+;; - "git://github.com/OWNER/REPO/?path=PATH"
+;; - "https://github.com/OWNER/REPO.git?path=PATH"
+;; - "github://github.com/OWNER/REPO/master"
+
+(define github-git-rx #rx"^git://github\\.com/([^?/#]+)/([^/?#]+)/?")
+(define github-https-rx #rx"^https://github[.]com/([^?/#]+)/([^/?#]+)[.]git/?")
+(define github-github-rx #rx"^github://github[.]com/([^?/#]+)/([^/?#]+)/?")
 
 ;; url->owner+repo : String -> (list String String)/#f
 (define (url->owner+repo url)
-  (cond [(regexp-match github-rx url)
+  (cond [(or (regexp-match github-git-rx url)
+             (regexp-match github-https-rx url)
+             (regexp-match github-github-rx url))
          => (lambda (m)
-              (defmatch (list _ owner repo path branch) m)
-              #|
-              (unless (member branch '(#f "master"))
-                (error 'init "non-master branch in source: ~s" url))
-              |#
+              (defmatch (list _ owner repo) m)
               (list owner repo))]
         [else #f]))
+
+(module+ test
+  (require rackunit)
+
+  (check-equal? (url->owner+repo "git://github.com/owner/repo")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "git://github.com/owner/repo#branch")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "git://github.com/owner/repo?path=path")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "git://github.com/owner/repo?path=path#branch")
+                (list "owner" "repo"))
+
+  (check-equal? (url->owner+repo "https://github.com/owner/repo.git")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "https://github.com/owner/repo.git?path=path")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "https://github.com/owner/repo.git#branch")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "https://github.com/owner/repo.git?path=path#branch")
+                (list "owner" "repo"))
+
+  (check-equal? (url->owner+repo "github://github.com/owner/repo")
+                (list "owner" "repo"))
+  (check-equal? (url->owner+repo "github://github.com/owner/repo/branch")
+                (list "owner" "repo")))
