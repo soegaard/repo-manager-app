@@ -59,7 +59,6 @@ racket/readline
 racket/realm
 racket/redex
 racket/remote-shell
-racket/sandbox-lib
 racket/sasl
 racket/scheme-lib
 racket/scribble
@@ -80,5 +79,4 @@ racket/unix-socket
 racket/web-server
 racket/wxme
 racket/xrepl
-stamourv/optimization-coach
-)
+stamourv/optimization-coach)

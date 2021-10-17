@@ -67,7 +67,6 @@
   racket/racket
   racket/realm
   racket/remote-shell
-  racket/sandbox-lib
   racket/serialize-cstruct-lib
   racket/shell-completion
   racket/slatex
