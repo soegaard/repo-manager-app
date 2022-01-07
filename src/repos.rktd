@@ -20,6 +20,7 @@ racket/ds-store
 racket/eli-tester
 racket/eopl
 racket/errortrace
+racket/expeditor
 racket/frtime
 racket/future-visualizer
 racket/games
@@ -79,4 +80,5 @@ racket/unix-socket
 racket/web-server
 racket/wxme
 racket/xrepl
-stamourv/optimization-coach)
+stamourv/optimization-coach
+)
