@@ -3,13 +3,16 @@
 ;; this file generates the text that appears
 ;; on https://github.com/racket/racket/wiki/Release-repo-managers/
 
+(require racket/runtime-path)
+
+(define-runtime-path here ".")
 
 ;; each element is a list containing a manager's name
 ;; and then a list of the repos they manage
 (define managers-list
   (cast
    ;; FIXME use local path
-   (file->value "/tmp/managers.rktd")
+   (file->value (build-path here "src" "managers.rktd"))
    (Listof (Listof Symbol))))
 
 (first managers-list)
@@ -30,8 +33,10 @@
     (~a " - **"repo"** is managed by *"manager"*")))
 
 (define (line-list->text [lines : (Listof String)])
-  (apply string-append
-         (add-between lines "\n")))
+  (string-append
+   (apply string-append
+          (add-between lines "\n"))
+   "\n"))
 
 (define manager-lines-1
   (append
@@ -52,11 +57,13 @@
            (map manager->list-2 managers-list))
     string<?)))
 
-
+(call-with-output-file "/tmp/managers.md"
+  (lambda ([port : Output-Port])
 (display
  (line-list->text
   (append
    manager-lines-1
-   manager-lines-2)))
+   manager-lines-2))
+ port)))
 
 
