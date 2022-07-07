@@ -75,6 +75,7 @@
   racket/unix-socket
   racket/xrepl
   RenaissanceBug/racket-cookies
+  racket/expeditor
   )
  (stamourv
   racket/contract-profile
