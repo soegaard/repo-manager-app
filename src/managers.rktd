@@ -96,5 +96,6 @@
   racket/simple-tree-text-markup
   racket/deinprogramm)
  (laurent
-  Metaxal/quickscript)
+  Metaxal/quickscript
+  Metaxal/quickscript-test)
  )

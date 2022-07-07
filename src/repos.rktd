@@ -1,5 +1,6 @@
 (
 Metaxal/quickscript
+Metaxal/quickscript-test
 RenaissanceBug/racket-cookies
 jeapostrophe/racket-cheat
 racket/2d
