@@ -20,8 +20,9 @@
 
 ;; ========================================
 
+;; update caches for all repos
 (define (update)
-  (for ([o/r (in-hash-keys branch-day-map)])
+  (for ([o/r (in-list (push-racket-to-end (hash-keys branch-day-map)))])
     (update1 o/r)))
 
 (define (update1 o/r)
@@ -134,6 +135,15 @@
         (hash-set! commits sha ci)
         (for ([parent (hash-ref ci 'parents null)])
           (loop (hash-ref parent 'sha)))))))
+
+;; huge hack; racket/racket is messed up; move it to the end to allow others
+;; to proceed. FIXME delete this function after removing the need for it
+(define (push-racket-to-end los)
+  (unless (andmap symbol? los)
+    (error 'push-racket-to-end "internal error: expected list of strings, got: ~e" los))
+  (define-values (racket not-racket)
+    (partition (λ (s) (equal? s 'racket/racket)) los))
+  (append not-racket racket))
 
 ;; ========================================
 
