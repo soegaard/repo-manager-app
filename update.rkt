@@ -22,44 +22,46 @@
 
 ;; update caches for all repos
 (define (update)
-  (for ([o/r (in-list (push-racket-to-end (hash-keys branch-day-map)))])
+  (for ([o/r (in-hash-keys branch-day-map)])
     (update1 o/r)))
 
 (define (update1 o/r)
-  (define ts (* 1000 (current-seconds)))
-  (defmatch (list owner repo) (string-split (symbol->string o/r) "/"))
-  (define branch-day-sha (hash-ref branch-day-map o/r))
-  (defmatch (list master-sha release-sha refs-etag) (get-refs+etag owner repo))
-  (define out-file (build-path data-dir (format "repo_~a_~a.json" owner repo)))
-  (define cache (make-hash))
-  ;; We want commits = { ^branch-day master release } exactly.
-  ;; 1. build a cache containing at least all commits in { ^branch-day master release }
-  (add-commits-from-file cache out-file)
-  (when master-sha
-    (or (fetch-commits owner repo master-sha branch-day-sha cache)
-        (fetch-commits/dominator owner repo master-sha branch-day-sha cache)))
-  (when release-sha
-    (or (fetch-commits owner repo release-sha branch-day-sha cache)
-        (fetch-commits/dominator owner repo release-sha branch-day-sha cache)))
-  ;; 2. remove everything reachable from branch-day
-  (remove-commits branch-day-sha cache)
-  ;; 3. finally, copy over everything reachable from { master release }
-  ;; (in case cache had random unrelated commits not reachable from branch-day)
-  (define commits (make-hash))
-  (when master-sha (add-commits master-sha commits cache))
-  (when master-sha (add-commits release-sha commits cache))
-  (define repo-info
-    (hash 'owner owner
-          'repo repo
-          'timestamp ts
-          'refs_etag refs-etag
-          'master_sha master-sha
-          'release_sha release-sha
-          'commits (hash-values commits)))
-  (printf "writing ~s\n" (path->string out-file))
-  (call-with-output-file* out-file
-    #:exists 'truncate/replace
-    (lambda (o) (write-json repo-info o))))
+  (with-handlers ([exn:fail?
+                   (λ (exn) (eprintf "update for repository ~v failed. Continuing.\n" o/r))])
+    (define ts (* 1000 (current-seconds)))
+    (defmatch (list owner repo) (string-split (symbol->string o/r) "/"))
+    (define branch-day-sha (hash-ref branch-day-map o/r))
+    (defmatch (list master-sha release-sha refs-etag) (get-refs+etag owner repo))
+    (define out-file (build-path data-dir (format "repo_~a_~a.json" owner repo)))
+    (define cache (make-hash))
+    ;; We want commits = { ^branch-day master release } exactly.
+    ;; 1. build a cache containing at least all commits in { ^branch-day master release }
+    (add-commits-from-file cache out-file)
+    (when master-sha
+      (or (fetch-commits owner repo master-sha branch-day-sha cache)
+          (fetch-commits/dominator owner repo master-sha branch-day-sha cache)))
+    (when release-sha
+      (or (fetch-commits owner repo release-sha branch-day-sha cache)
+          (fetch-commits/dominator owner repo release-sha branch-day-sha cache)))
+    ;; 2. remove everything reachable from branch-day
+    (remove-commits branch-day-sha cache)
+    ;; 3. finally, copy over everything reachable from { master release }
+    ;; (in case cache had random unrelated commits not reachable from branch-day)
+    (define commits (make-hash))
+    (when master-sha (add-commits master-sha commits cache))
+    (when master-sha (add-commits release-sha commits cache))
+    (define repo-info
+      (hash 'owner owner
+            'repo repo
+            'timestamp ts
+            'refs_etag refs-etag
+            'master_sha master-sha
+            'release_sha release-sha
+            'commits (hash-values commits)))
+    (printf "writing ~s\n" (path->string out-file))
+    (call-with-output-file* out-file
+                            #:exists 'truncate/replace
+                            (lambda (o) (write-json repo-info o)))))
 
 (define (get-refs+etag owner repo)
   (defmatch (cons info etag) (github:get-refs+etag owner repo))
@@ -135,15 +137,6 @@
         (hash-set! commits sha ci)
         (for ([parent (hash-ref ci 'parents null)])
           (loop (hash-ref parent 'sha)))))))
-
-;; huge hack; racket/racket is messed up; move it to the end to allow others
-;; to proceed. FIXME delete this function after removing the need for it
-(define (push-racket-to-end los)
-  (unless (andmap symbol? los)
-    (error 'push-racket-to-end "internal error: expected list of strings, got: ~e" los))
-  (define-values (racket not-racket)
-    (partition (λ (s) (equal? s 'racket/racket)) los))
-  (append not-racket racket))
 
 ;; ========================================
 
