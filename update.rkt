@@ -27,22 +27,29 @@
 
 (define (update1 o/r)
   (with-handlers ([exn:fail?
-                   (λ (exn) (eprintf "update for repository ~v failed. Continuing.\n" o/r))])
+                   (λ (exn) (eprintf "update for repository ~v failed. \nmessage: ~v\nContinuing.\n"
+                                     o/r
+                                     (exn-message exn)))])
     (define ts (* 1000 (current-seconds)))
     (defmatch (list owner repo) (string-split (symbol->string o/r) "/"))
     (define branch-day-sha (hash-ref branch-day-map o/r))
-    (defmatch (list master-sha release-sha refs-etag) (get-refs+etag owner repo))
+    (defmatch (list master-sha release-sha stable-sha refs-etag) (get-certain-refs+etag owner repo))
     (define out-file (build-path data-dir (format "repo_~a_~a.json" owner repo)))
     (define cache (make-hash))
     ;; We want commits = { ^branch-day master release } exactly.
+    ;; (N.B. this notation is standard git notation, documented at
+    ;;   That notation (without the braces, though) is one of git's ways of
+    ;;   https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection in the
+    ;;   "Commit Ranges" section. In this case: all ancestors of master & release, except for
+    ;;   any ancestors of branch-day.
     ;; 1. build a cache containing at least all commits in { ^branch-day master release }
     (add-commits-from-file cache out-file)
     (when master-sha
       (or (fetch-commits owner repo master-sha branch-day-sha cache)
-          (fetch-commits/dominator owner repo master-sha branch-day-sha cache)))
+          (fetch-commits/dominator owner repo master-sha branch-day-sha stable-sha cache)))
     (when release-sha
       (or (fetch-commits owner repo release-sha branch-day-sha cache)
-          (fetch-commits/dominator owner repo release-sha branch-day-sha cache)))
+          (fetch-commits/dominator owner repo release-sha branch-day-sha stable-sha cache)))
     ;; 2. remove everything reachable from branch-day
     (remove-commits branch-day-sha cache)
     ;; 3. finally, copy over everything reachable from { master release }
@@ -63,13 +70,16 @@
                             #:exists 'truncate/replace
                             (lambda (o) (write-json repo-info o)))))
 
-(define (get-refs+etag owner repo)
+;; return the commit-shas of the heads of certain branches and also
+;; the etag of the request
+(define (get-certain-refs+etag owner repo)
   (defmatch (cons info etag) (github:get-refs+etag owner repo))
   (define h
     (for/hash ([refinfo (in-list info)])
       (values (hash-ref refinfo 'ref) (hash-ref* refinfo 'object 'sha))))
   (list (hash-ref h "refs/heads/master" #f)
         (hash-ref h "refs/heads/release" #f)
+        (hash-ref h "refs/heads/stable" #f)
         etag))
 
 (define (add-commits-from-file commits out-file)
@@ -96,17 +106,22 @@
              (loop (hash-ref parent 'sha) (sub1 fuel)))])))
 
 ;; Add all commits in base-sha..start-sha (and more) by searching for a dominator.
-(define (fetch-commits/dominator owner repo start-sha base-sha cache)
+;; ignore any references to the stable-sha
+(define (fetch-commits/dominator owner repo start-sha base-sha stable-sha cache)
   (define visited (make-hash))
   (eprintf "*** finding dominator for ~a/~a\n" owner repo)
   ;; Invariant: every path from some node in (list start-sha base-sha) to root
   ;; goes through some node in the worklist.
-  (let loop ([worklist (list start-sha base-sha)] [fuel BFS-FUEL])
+  (define initial-worklist (list start-sha base-sha))
+  (when (member stable-sha initial-worklist)
+    (error 'fetch-commits/dominator "either start-sha (~v) or base-sha (~v) is equal to stable-sha (~v). Maybe a problem?"
+           start-sha base-sha stable-sha))
+  (let loop ([worklist initial-worklist] [fuel BFS-FUEL])
     (when (zero? fuel)
       (error 'update "bfs out of fuel: ~a/~a" owner repo))
     ;; We're done when the worklist is a single node.
     (when (> (length worklist) 1)
-      (let* ([worklist (remove-duplicates worklist)]
+      (let* ([worklist (remove* (list stable-sha) (remove-duplicates worklist))]
              [cis (for/list ([sha worklist]
                              #:when (not (hash-ref visited sha #f)))
                     (hash-set! visited sha #t)
