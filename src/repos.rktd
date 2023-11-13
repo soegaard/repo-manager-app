@@ -81,5 +81,6 @@ racket/unix-socket
 racket/web-server
 racket/wxme
 racket/xrepl
+racket/zuo
 stamourv/optimization-coach
 )
